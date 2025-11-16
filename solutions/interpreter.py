@@ -10,6 +10,8 @@ logger.add(sys.stderr, format="[{level}] {message}")
 
 methodid, input = jpamb.getcase()
 
+def make_string_value(s: str) -> jvm.Value:
+    return jvm.Value(jvm.Ref("java/lang/String"), s)
 
 @dataclass
 class PC:
@@ -95,7 +97,7 @@ class State:
     def __str__(self):
         return f"{self.heap} {self.frames}"
 
-def _bin_int(op):
+def _bin_int(frame, state, op):
     v2, v1 = frame.stack.pop(), frame.stack.pop()
     assert v1.type == jvm.Int() and v2.type == jvm.Int(), f"expected ints, got {v1}, {v2}"
     frame.stack.push(jvm.Value.int(op(v1.value, v2.value)))
@@ -189,7 +191,44 @@ def step(state: State) -> State | str:
         case jvm.InvokeSpecial(method=_m):
             frame.pc += 1
             return state
-        case jvm.InvokeVirtual(method=_m):
+        case jvm.InvokeVirtual(method=m):
+            ms = str(m) 
+            if ms.startswith("java/lang/String."):
+                class_and_name, _, desc = ms.partition(":")
+                _cls, _, name = class_and_name.rpartition(".")
+                if name == "length" and desc == "()I":
+                    recv = frame.stack.pop()
+                    assert recv.type == jvm.Ref("java/lang/String"), f"expected String receiver, got {recv}"
+                    frame.stack.push(jvm.Value.int(len(recv.value)))
+                    frame.pc += 1
+                    return state
+                elif name == "concat":
+                    arg = frame.stack.pop()
+                    recv = frame.stack.pop()
+                    assert recv.type == jvm.Ref("java/lang/String"), f"expected String receiver, got {recv}"
+                    assert arg.type == jvm.Ref("java/lang/String"), f"expected String argument, got {arg}"
+                    frame.stack.push(make_string_value(str(recv.value) + str(arg.value)))
+                    frame.pc += 1
+                    return state
+                elif name == "equals":
+                    other = frame.stack.pop()
+                    recv = frame.stack.pop()
+                    eq = False
+                    if recv.type == jvm.Ref("java/lang/String") and other.type == jvm.Ref("java/lang/String"):
+                        eq = (recv.value == other.value)
+                    frame.stack.push(jvm.Value.int(1 if eq else 0))
+                    frame.pc += 1
+                    return state
+                elif name == "equalsIgnoreCase":
+                    other = frame.stack.pop()
+                    recv = frame.stack.pop()
+                    eq = False
+                    if recv.type == jvm.Ref("java/lang/String") and other.type == jvm.Ref("java/lang/String"):
+                        eq = (str(recv.value).lower() == str(other.value).lower())
+                    frame.stack.push(jvm.Value.int(1 if eq else 0))
+                    frame.pc += 1
+                    return state
+                # TODO: More string things
             frame.pc += 1
             return state
         case jvm.InvokeStatic(method=_m):
@@ -205,29 +244,20 @@ def step(state: State) -> State | str:
                 return state
             else:
                 return "ok"
-        case jvm.Ldc(value=v):
-            if isinstance(v, str):
-                frame.stack.push(jvm.Value(jvm.Ref("java/lang/String"), v))
-            else:
-                frame.stack.push(v)
-            frame.pc += 1
-            return state
         case jvm.Binary(type=jvm.Int(), operant=jvm.BinaryOpr.Mul):
             v2, v1 = frame.stack.pop(), frame.stack.pop()
             assert v1.type is jvm.Int() and v2.type is jvm.Int(), f"expected ints, got {v1}, {v2}"
             frame.stack.push(jvm.Value.int(v1.value * v2.value))
             frame.pc += 1
             return state        
+        case jvm.Binary(type=jvm.Int(), operant=jvm.BinaryOpr.Mul):
+            return _bin_int(frame, state, lambda a, b: a * b)
+
         case jvm.Binary(type=jvm.Int(), operant=jvm.BinaryOpr.Add):
-            v2, v1 = frame.stack.pop(), frame.stack.pop()
-            assert v1.type == jvm.Int() and v2.type == jvm.Int(), f"expected ints, got {v1}, {v2}"
-            frame.stack.push(jvm.Value.int(op(v1.value, v2.value)))
-            frame.pc += 1
-            return state
-        case jvm.Binary(type=jvm.Int(), operant=jvm.BinaryOpr.Add):
-            return _bin_int(lambda a,b: a+b)
+            return _bin_int(frame, state, lambda a, b: a + b)
+
         case jvm.Binary(type=jvm.Int(), operant=jvm.BinaryOpr.Sub):
-            return _bin_int(lambda a,b: a-b)
+            return _bin_int(frame, state, lambda a, b: a - b)
         case a:
             raise NotImplementedError(f"Don't know how to handle: {a!r}")
 
@@ -244,18 +274,3 @@ for x in range(1000):
         break
 else:
     print("*")
-
-if __name__ == "__main__":
-    test_method = next(iter(bc.suite.methods()))
-    test_frame = Frame.from_method(test_method)
-    test_state = State({}, Stack.empty().push(test_frame))
-    test_frame.pc = PC(test_method, 0)
-
-    op = jvm.Ldc("hello")
-
-    match op:
-        case jvm.Ldc(value=v):
-            if isinstance(v, str):
-                test_frame.stack.push(jvm.Value(jvm.Ref("java/lang/String"), v))
-
-    print(test_frame.stack.peek(), test_frame.stack.peek().type, test_frame.stack.peek().value)
