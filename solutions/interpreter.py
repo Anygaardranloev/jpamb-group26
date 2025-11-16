@@ -38,7 +38,6 @@ class Bytecode:
         except KeyError:
             opcodes = list(self.suite.method_opcodes(pc.method))
             self.methods[pc.method] = opcodes
-
         return opcodes[pc.offset]
 
 
@@ -83,6 +82,7 @@ class Frame:
         locals = ", ".join(f"{k}:{v}" for k, v in sorted(self.locals.items()))
         return f"<{{{locals}}}, {self.stack}, {self.pc}>"
 
+    @staticmethod
     def from_method(method: jvm.AbsMethodID) -> "Frame":
         return Frame({}, Stack.empty(), PC(method, 0))
 
@@ -95,6 +95,12 @@ class State:
     def __str__(self):
         return f"{self.heap} {self.frames}"
 
+def _bin_int(op):
+    v2, v1 = frame.stack.pop(), frame.stack.pop()
+    assert v1.type == jvm.Int() and v2.type == jvm.Int(), f"expected ints, got {v1}, {v2}"
+    frame.stack.push(jvm.Value.int(op(v1.value, v2.value)))
+    frame.pc += 1
+    return state
 
 def step(state: State) -> State | str:
     assert isinstance(state, State), f"expected frame but got {state}"
@@ -116,7 +122,6 @@ def step(state: State) -> State | str:
             assert v2.type is jvm.Int(), f"expected int, but got {v2}"
             if v2.value == 0:
                 return "divide by zero"
-
             frame.stack.push(jvm.Value.int(v1.value // v2.value))
             frame.pc += 1
             return state
@@ -130,9 +135,101 @@ def step(state: State) -> State | str:
                 return state
             else:
                 return "ok"
+        case jvm.Ifz(condition=cond, target=t):
+            v = frame.stack.pop()
+            val = v.value
+            if isinstance(val, bool):
+                val = 1 if val else 0
+            elif not isinstance(val, int):
+                raise AssertionError(f"ifz expects int/bool-like, got {v}")
+            c = str(cond)  # e.g., 'eq','ne','gt','ge','lt','le','z','nz'
+            if c in ("eq", "z"): jump = (val == 0)
+            elif c in ("ne", "nz"): jump = (val != 0)
+            elif c == "gt": jump = (val >  0)
+            elif c == "ge": jump = (val >= 0)
+            elif c == "lt": jump = (val <  0)
+            elif c == "le": jump = (val <= 0)
+            else:
+                raise NotImplementedError(f"Unknown Ifz condition: {c}")
+            frame.pc = PC(frame.pc.method, t) if jump else (frame.pc + 1)
+            return state
+        case jvm.If(condition=cond, target=t):
+            v2 = frame.stack.pop()
+            v1 = frame.stack.pop()
+            assert v1.type is jvm.Int() and v2.type is jvm.Int(), f"expected ints, got {v1}, {v2}"
+            c = str(cond)
+            if c == "gt": ok = (v1.value >  v2.value)
+            elif c == "ge": ok = (v1.value >= v2.value)
+            elif c == "lt": ok = (v1.value <  v2.value)
+            elif c == "le": ok = (v1.value <= v2.value)
+            elif c == "eq": ok = (v1.value == v2.value)
+            elif c == "ne": ok = (v1.value != v2.value)
+            else: ok = False
+            frame.pc = PC(frame.pc.method, t) if ok else (frame.pc + 1)
+            return state
+        case jvm.Goto(target=t):
+            frame.pc = PC(frame.pc.method, t)
+            return state
+        case jvm.Get(static=True):
+            frame.stack.push(jvm.Value.int(0))
+            frame.pc += 1
+            return state
+        case jvm.Dup():
+            frame.stack.push(frame.stack.peek())
+            frame.pc += 1
+            return state
+        case jvm.Dup(depth=_d):
+            frame.stack.push(frame.stack.peek())
+            frame.pc += 1
+            return state
+        case jvm.New(classname=_cls):
+            frame.stack.push(jvm.Value.int(0))
+            frame.pc += 1
+            return state
+        case jvm.InvokeSpecial(method=_m):
+            frame.pc += 1
+            return state
+        case jvm.InvokeVirtual(method=_m):
+            frame.pc += 1
+            return state
+        case jvm.InvokeStatic(method=_m):
+            frame.pc += 1
+            return state
+        case jvm.Throw():
+            return "assertion error"
+        case jvm.Return(type=None):
+            state.frames.pop()
+            if state.frames:
+                caller = state.frames.peek()
+                caller.pc += 1
+                return state
+            else:
+                return "ok"
+        case jvm.Ldc(value=v):
+            if isinstance(v, str):
+                frame.stack.push(jvm.Value(jvm.Ref("java/lang/String"), v))
+            else:
+                frame.stack.push(v)
+            frame.pc += 1
+            return state
+        case jvm.Binary(type=jvm.Int(), operant=jvm.BinaryOpr.Mul):
+            v2, v1 = frame.stack.pop(), frame.stack.pop()
+            assert v1.type is jvm.Int() and v2.type is jvm.Int(), f"expected ints, got {v1}, {v2}"
+            frame.stack.push(jvm.Value.int(v1.value * v2.value))
+            frame.pc += 1
+            return state        
+        case jvm.Binary(type=jvm.Int(), operant=jvm.BinaryOpr.Add):
+            v2, v1 = frame.stack.pop(), frame.stack.pop()
+            assert v1.type == jvm.Int() and v2.type == jvm.Int(), f"expected ints, got {v1}, {v2}"
+            frame.stack.push(jvm.Value.int(op(v1.value, v2.value)))
+            frame.pc += 1
+            return state
+        case jvm.Binary(type=jvm.Int(), operant=jvm.BinaryOpr.Add):
+            return _bin_int(lambda a,b: a+b)
+        case jvm.Binary(type=jvm.Int(), operant=jvm.BinaryOpr.Sub):
+            return _bin_int(lambda a,b: a-b)
         case a:
             raise NotImplementedError(f"Don't know how to handle: {a!r}")
-
 
 frame = Frame.from_method(methodid)
 for i, v in enumerate(input.values):
@@ -147,3 +244,18 @@ for x in range(1000):
         break
 else:
     print("*")
+
+if __name__ == "__main__":
+    test_method = next(iter(bc.suite.methods()))
+    test_frame = Frame.from_method(test_method)
+    test_state = State({}, Stack.empty().push(test_frame))
+    test_frame.pc = PC(test_method, 0)
+
+    op = jvm.Ldc("hello")
+
+    match op:
+        case jvm.Ldc(value=v):
+            if isinstance(v, str):
+                test_frame.stack.push(jvm.Value(jvm.Ref("java/lang/String"), v))
+
+    print(test_frame.stack.peek(), test_frame.stack.peek().type, test_frame.stack.peek().value)
