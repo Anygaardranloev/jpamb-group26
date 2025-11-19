@@ -449,7 +449,7 @@
             "opr": "push",
             "value": {
               "type": "string",
-              "value": "[-]?[0-9\\.]+|\\[[ICZ]:|\\(|\\)|\\]|,|'[^']*'|true|false"
+              "value": "[-]?[0-9\\.]+|\\[[ICZ]:|\\(|\\)|\\]|,|'[^']*'|\"[^\"]*\"|true|false"
             }
           },
           {
@@ -1151,6 +1151,189 @@
             "opr": "push",
             "value": {
               "type": "string",
+              "value": "\"[^\"]*\""
+            }
+          },
+          {
+            "access": "virtual",
+            "method": {
+              "args": [
+                {
+                  "kind": "class",
+                  "name": "java/lang/String"
+                }
+              ],
+              "name": "matches",
+              "ref": {
+                "kind": "class",
+                "name": "java/lang/String"
+              },
+              "returns": "boolean"
+            },
+            "offset": 59,
+            "opr": "invoke"
+          },
+          {
+            "condition": "eq",
+            "offset": 62,
+            "opr": "ifz",
+            "target": 44
+          },
+          {
+            "index": 0,
+            "offset": 65,
+            "opr": "load",
+            "type": "ref"
+          },
+          {
+            "field": {
+              "class": "jpamb/utils/InputParser",
+              "name": "currentToken",
+              "type": {
+                "kind": "class",
+                "name": "java/lang/String"
+              }
+            },
+            "offset": 66,
+            "opr": "get",
+            "static": false
+          },
+          {
+            "offset": 69,
+            "opr": "push",
+            "value": {
+              "type": "integer",
+              "value": 1
+            }
+          },
+          {
+            "index": 0,
+            "offset": 70,
+            "opr": "load",
+            "type": "ref"
+          },
+          {
+            "field": {
+              "class": "jpamb/utils/InputParser",
+              "name": "currentToken",
+              "type": {
+                "kind": "class",
+                "name": "java/lang/String"
+              }
+            },
+            "offset": 71,
+            "opr": "get",
+            "static": false
+          },
+          {
+            "access": "virtual",
+            "method": {
+              "args": [],
+              "name": "length",
+              "ref": {
+                "kind": "class",
+                "name": "java/lang/String"
+              },
+              "returns": "int"
+            },
+            "offset": 74,
+            "opr": "invoke"
+          },
+          {
+            "offset": 77,
+            "opr": "push",
+            "value": {
+              "type": "integer",
+              "value": 1
+            }
+          },
+          {
+            "offset": 78,
+            "operant": "sub",
+            "opr": "binary",
+            "type": "int"
+          },
+          {
+            "access": "virtual",
+            "method": {
+              "args": [
+                "int",
+                "int"
+              ],
+              "name": "substring",
+              "ref": {
+                "kind": "class",
+                "name": "java/lang/String"
+              },
+              "returns": {
+                "kind": "class",
+                "name": "java/lang/String"
+              }
+            },
+            "offset": 79,
+            "opr": "invoke"
+          },
+          {
+            "index": 1,
+            "offset": 82,
+            "opr": "store",
+            "type": "ref"
+          },
+          {
+            "index": 0,
+            "offset": 83,
+            "opr": "load",
+            "type": "ref"
+          },
+          {
+            "access": "virtual",
+            "method": {
+              "args": [],
+              "name": "nextToken",
+              "ref": {
+                "kind": "class",
+                "name": "jpamb/utils/InputParser"
+              },
+              "returns": null
+            },
+            "offset": 84,
+            "opr": "invoke"
+          },
+          {
+            "index": 1,
+            "offset": 87,
+            "opr": "load",
+            "type": "ref"
+          },
+          {
+            "offset": 88,
+            "opr": "return",
+            "type": "ref"
+          },
+          {
+            "index": 0,
+            "offset": 89,
+            "opr": "load",
+            "type": "ref"
+          },
+          {
+            "field": {
+              "class": "jpamb/utils/InputParser",
+              "name": "currentToken",
+              "type": {
+                "kind": "class",
+                "name": "java/lang/String"
+              }
+            },
+            "offset": 90,
+            "opr": "get",
+            "static": false
+          },
+          {
+            "offset": 93,
+            "opr": "push",
+            "value": {
+              "type": "string",
               "value": "true"
             }
           },
@@ -1170,18 +1353,18 @@
               },
               "returns": "boolean"
             },
-            "offset": 59,
+            "offset": 95,
             "opr": "invoke"
           },
           {
             "condition": "eq",
-            "offset": 62,
+            "offset": 98,
             "opr": "ifz",
-            "target": 35
+            "target": 54
           },
           {
             "index": 0,
-            "offset": 65,
+            "offset": 101,
             "opr": "load",
             "type": "ref"
           },
@@ -1196,11 +1379,11 @@
               },
               "returns": null
             },
-            "offset": 66,
+            "offset": 102,
             "opr": "invoke"
           },
           {
-            "offset": 69,
+            "offset": 105,
             "opr": "push",
             "value": {
               "type": "integer",
@@ -1224,17 +1407,17 @@
                 "name": "java/lang/Boolean"
               }
             },
-            "offset": 70,
+            "offset": 106,
             "opr": "invoke"
           },
           {
-            "offset": 73,
+            "offset": 109,
             "opr": "return",
             "type": "ref"
           },
           {
             "index": 0,
-            "offset": 74,
+            "offset": 110,
             "opr": "load",
             "type": "ref"
           },
@@ -1247,12 +1430,12 @@
                 "name": "java/lang/String"
               }
             },
-            "offset": 75,
+            "offset": 111,
             "opr": "get",
             "static": false
           },
           {
-            "offset": 78,
+            "offset": 114,
             "opr": "push",
             "value": {
               "type": "string",
@@ -1275,18 +1458,18 @@
               },
               "returns": "boolean"
             },
-            "offset": 80,
+            "offset": 116,
             "opr": "invoke"
           },
           {
             "condition": "eq",
-            "offset": 83,
+            "offset": 119,
             "opr": "ifz",
-            "target": 45
+            "target": 64
           },
           {
             "index": 0,
-            "offset": 86,
+            "offset": 122,
             "opr": "load",
             "type": "ref"
           },
@@ -1301,11 +1484,11 @@
               },
               "returns": null
             },
-            "offset": 87,
+            "offset": 123,
             "opr": "invoke"
           },
           {
-            "offset": 90,
+            "offset": 126,
             "opr": "push",
             "value": {
               "type": "integer",
@@ -1329,17 +1512,17 @@
                 "name": "java/lang/Boolean"
               }
             },
-            "offset": 91,
+            "offset": 127,
             "opr": "invoke"
           },
           {
-            "offset": 94,
+            "offset": 130,
             "opr": "return",
             "type": "ref"
           },
           {
             "index": 0,
-            "offset": 95,
+            "offset": 131,
             "opr": "load",
             "type": "ref"
           },
@@ -1352,12 +1535,12 @@
                 "name": "java/lang/String"
               }
             },
-            "offset": 96,
+            "offset": 132,
             "opr": "get",
             "static": false
           },
           {
-            "offset": 99,
+            "offset": 135,
             "opr": "push",
             "value": {
               "type": "string",
@@ -1380,18 +1563,18 @@
               },
               "returns": "boolean"
             },
-            "offset": 101,
+            "offset": 137,
             "opr": "invoke"
           },
           {
             "condition": "eq",
-            "offset": 104,
+            "offset": 140,
             "opr": "ifz",
-            "target": 53
+            "target": 72
           },
           {
             "index": 0,
-            "offset": 107,
+            "offset": 143,
             "opr": "load",
             "type": "ref"
           },
@@ -1409,17 +1592,17 @@
                 "name": "java/lang/Object"
               }
             },
-            "offset": 108,
+            "offset": 144,
             "opr": "invoke"
           },
           {
-            "offset": 111,
+            "offset": 147,
             "opr": "return",
             "type": "ref"
           },
           {
             "index": 0,
-            "offset": 112,
+            "offset": 148,
             "opr": "load",
             "type": "ref"
           },
@@ -1432,12 +1615,12 @@
                 "name": "java/lang/String"
               }
             },
-            "offset": 113,
+            "offset": 149,
             "opr": "get",
             "static": false
           },
           {
-            "offset": 116,
+            "offset": 152,
             "opr": "push",
             "value": {
               "type": "string",
@@ -1460,18 +1643,18 @@
               },
               "returns": "boolean"
             },
-            "offset": 118,
+            "offset": 154,
             "opr": "invoke"
           },
           {
             "condition": "eq",
-            "offset": 121,
+            "offset": 157,
             "opr": "ifz",
-            "target": 61
+            "target": 80
           },
           {
             "index": 0,
-            "offset": 124,
+            "offset": 160,
             "opr": "load",
             "type": "ref"
           },
@@ -1489,22 +1672,22 @@
                 "name": "java/lang/Object"
               }
             },
-            "offset": 125,
+            "offset": 161,
             "opr": "invoke"
           },
           {
-            "offset": 128,
+            "offset": 164,
             "opr": "return",
             "type": "ref"
           },
           {
             "index": 0,
-            "offset": 129,
+            "offset": 165,
             "opr": "load",
             "type": "ref"
           },
           {
-            "offset": 130,
+            "offset": 166,
             "opr": "push",
             "value": {
               "type": "string",
@@ -1527,16 +1710,16 @@
               },
               "returns": null
             },
-            "offset": 132,
+            "offset": 168,
             "opr": "invoke"
           },
           {
-            "offset": 135,
+            "offset": 171,
             "opr": "push",
             "value": null
           },
           {
-            "offset": 136,
+            "offset": 172,
             "opr": "return",
             "type": "ref"
           }
@@ -1577,47 +1760,63 @@
           },
           {
             "line": 56,
-            "offset": 32
-          },
-          {
-            "line": 57,
-            "offset": 35
-          },
-          {
-            "line": 58,
             "offset": 40
           },
           {
-            "line": 59,
+            "line": 57,
             "offset": 42
           },
           {
+            "line": 58,
+            "offset": 44
+          },
+          {
+            "line": 59,
+            "offset": 49
+          },
+          {
             "line": 60,
-            "offset": 45
+            "offset": 51
           },
           {
             "line": 61,
-            "offset": 50
+            "offset": 54
           },
           {
             "line": 62,
-            "offset": 53
+            "offset": 59
           },
           {
             "line": 63,
-            "offset": 58
-          },
-          {
-            "line": 65,
             "offset": 61
           },
           {
-            "line": 66,
+            "line": 64,
             "offset": 64
+          },
+          {
+            "line": 65,
+            "offset": 69
+          },
+          {
+            "line": 66,
+            "offset": 72
+          },
+          {
+            "line": 67,
+            "offset": 77
+          },
+          {
+            "line": 69,
+            "offset": 80
+          },
+          {
+            "line": 70,
+            "offset": 83
           }
         ],
         "max_locals": 2,
-        "max_stack": 2,
+        "max_stack": 4,
         "stack_map": [
           {
             "index": 14,
@@ -1628,19 +1827,23 @@
             "type": "same"
           },
           {
-            "index": 35,
+            "index": 44,
             "type": "same"
           },
           {
-            "index": 45,
+            "index": 54,
             "type": "same"
           },
           {
-            "index": 53,
+            "index": 64,
             "type": "same"
           },
           {
-            "index": 61,
+            "index": 72,
+            "type": "same"
+          },
+          {
+            "index": 80,
             "type": "same"
           }
         ]
@@ -1777,7 +1980,7 @@
         "exceptions": [],
         "lines": [
           {
-            "line": 71,
+            "line": 75,
             "offset": 0
           }
         ],
@@ -2750,95 +2953,95 @@
         "exceptions": [],
         "lines": [
           {
-            "line": 75,
+            "line": 79,
             "offset": 0
           },
           {
-            "line": 76,
+            "line": 80,
             "offset": 4
           },
           {
-            "line": 78,
+            "line": 82,
             "offset": 7
           },
           {
-            "line": 79,
+            "line": 83,
             "offset": 10
           },
           {
-            "line": 81,
+            "line": 85,
             "offset": 13
           },
           {
-            "line": 82,
+            "line": 86,
             "offset": 18
           },
           {
-            "line": 83,
+            "line": 87,
             "offset": 20
           },
           {
-            "line": 86,
+            "line": 90,
             "offset": 23
           },
           {
-            "line": 87,
+            "line": 91,
             "offset": 28
           },
           {
-            "line": 89,
+            "line": 93,
             "offset": 31
           },
           {
-            "line": 90,
+            "line": 94,
             "offset": 38
           },
           {
-            "line": 92,
+            "line": 96,
             "offset": 40
           },
           {
-            "line": 93,
+            "line": 97,
             "offset": 48
           },
           {
-            "line": 94,
+            "line": 98,
             "offset": 50
           },
           {
-            "line": 95,
+            "line": 99,
             "offset": 58
           },
           {
-            "line": 96,
+            "line": 100,
             "offset": 61
           },
           {
-            "line": 97,
+            "line": 101,
             "offset": 68
           },
           {
-            "line": 100,
+            "line": 104,
             "offset": 71
           },
           {
-            "line": 102,
+            "line": 106,
             "offset": 74
           },
           {
-            "line": 103,
+            "line": 107,
             "offset": 78
           },
           {
-            "line": 104,
+            "line": 108,
             "offset": 84
           },
           {
-            "line": 103,
+            "line": 107,
             "offset": 92
           },
           {
-            "line": 106,
+            "line": 110,
             "offset": 94
           }
         ],
@@ -3871,95 +4074,95 @@
         "exceptions": [],
         "lines": [
           {
-            "line": 110,
+            "line": 114,
             "offset": 0
           },
           {
-            "line": 111,
+            "line": 115,
             "offset": 4
           },
           {
-            "line": 113,
+            "line": 117,
             "offset": 7
           },
           {
-            "line": 114,
+            "line": 118,
             "offset": 10
           },
           {
-            "line": 116,
+            "line": 120,
             "offset": 13
           },
           {
-            "line": 117,
+            "line": 121,
             "offset": 18
           },
           {
-            "line": 118,
+            "line": 122,
             "offset": 20
           },
           {
-            "line": 121,
+            "line": 125,
             "offset": 23
           },
           {
-            "line": 122,
+            "line": 126,
             "offset": 28
           },
           {
-            "line": 124,
+            "line": 128,
             "offset": 31
           },
           {
-            "line": 125,
+            "line": 129,
             "offset": 39
           },
           {
-            "line": 127,
+            "line": 131,
             "offset": 41
           },
           {
-            "line": 128,
+            "line": 132,
             "offset": 49
           },
           {
-            "line": 129,
+            "line": 133,
             "offset": 51
           },
           {
-            "line": 130,
+            "line": 134,
             "offset": 59
           },
           {
-            "line": 131,
+            "line": 135,
             "offset": 62
           },
           {
-            "line": 132,
+            "line": 136,
             "offset": 70
           },
           {
-            "line": 135,
+            "line": 139,
             "offset": 73
           },
           {
-            "line": 137,
+            "line": 141,
             "offset": 76
           },
           {
-            "line": 138,
+            "line": 142,
             "offset": 80
           },
           {
-            "line": 139,
+            "line": 143,
             "offset": 86
           },
           {
-            "line": 138,
+            "line": 142,
             "offset": 94
           },
           {
-            "line": 141,
+            "line": 145,
             "offset": 96
           }
         ],
@@ -4541,55 +4744,55 @@
         "exceptions": [],
         "lines": [
           {
-            "line": 145,
+            "line": 149,
             "offset": 0
           },
           {
-            "line": 147,
+            "line": 151,
             "offset": 4
           },
           {
-            "line": 149,
+            "line": 153,
             "offset": 7
           },
           {
-            "line": 150,
+            "line": 154,
             "offset": 10
           },
           {
-            "line": 152,
+            "line": 156,
             "offset": 13
           },
           {
-            "line": 153,
+            "line": 157,
             "offset": 18
           },
           {
-            "line": 154,
+            "line": 158,
             "offset": 20
           },
           {
-            "line": 157,
+            "line": 161,
             "offset": 23
           },
           {
-            "line": 159,
+            "line": 163,
             "offset": 28
           },
           {
-            "line": 160,
+            "line": 164,
             "offset": 36
           },
           {
-            "line": 161,
+            "line": 165,
             "offset": 38
           },
           {
-            "line": 164,
+            "line": 168,
             "offset": 44
           },
           {
-            "line": 165,
+            "line": 169,
             "offset": 47
           }
         ],

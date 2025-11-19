@@ -26,7 +26,7 @@ public class InputParser {
   private void nextToken() {
     if (sc.hasNext()) {
       currentToken = sc.findWithinHorizon(
-          "[-]?[0-9\\.]+|\\[[ICZ]:|\\(|\\)|\\]|,|'[^']*'|true|false", 0);
+          "[-]?[0-9\\.]+|\\[[ICZ]:|\\(|\\)|\\]|,|'[^']*'|\"[^\"]*\"|true|false", 0);
     } else {
       currentToken = null;
     }
@@ -51,6 +51,10 @@ public class InputParser {
     } else if (currentToken.matches("'[^']+'")) {
       // TODO does not handle '\''
       return currentToken.charAt(1);
+    } else if (currentToken.matches("\"[^\"]*\"")) {
+      String value = currentToken.substring(1, currentToken.length() - 1);
+      nextToken();
+      return value;
     } else if (currentToken.equals("true")) {
       nextToken();
       return true;

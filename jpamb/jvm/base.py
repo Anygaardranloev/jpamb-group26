@@ -83,6 +83,7 @@ class Type(ABC):
 
     @staticmethod
     def decode(input) -> tuple["Type", str]:
+        print("TYPE.DECODE CALLED WITH:", repr(input))
         r, stack = None, []
         i = 0
         r = None
@@ -104,6 +105,14 @@ class Type(ABC):
                     r = Float()
                 case "D":
                     r = Double()
+                case "L":
+                    end = input.index(";", i)
+                    class_path = input[i+1:end]
+                    if class_path == "java/lang/String":
+                        r = String()
+                    else:
+                        r = Object(ClassName(class_path.replace("/", ".")))
+                    i = end+1
                 case "[":  # ]
                     stack.append(Array)
                     i += 1
@@ -143,12 +152,20 @@ class Type(ABC):
                     return Reference()
                 case "boolean":
                     return Boolean()
+                case "string":
+                    return String()
         if "base" in json:
             return Type.from_json(json["base"])
         if "kind" in json:
             match json["kind"]:
                 case "array":
                     return Array(Type.from_json(json["type"]))
+                case "class":
+                    class_name = json["name"]
+                    if class_name == "java.lang.String" or class_name == "java/lang/String":
+                        return String()
+
+                    return Object(ClassName(class_name.replace("/", ".")))
                 case kind:
                     raise NotImplementedError(
                         f"Unknown kind {kind}, in Type.from_json: {json!r}"
@@ -288,7 +305,7 @@ class Reference(StackType):
 @dataclass(frozen=True, order=True)
 class Object(Type):
     """
-    A reference to an object of an known class.
+    A reference to an object of a known class.
     """
 
     _instance = dict()
@@ -333,6 +350,26 @@ class Array(Type):
 
     def math(self):
         return f"array {self.contains.math()}"
+
+
+@dataclass(frozen=True, order=True)
+class String(Type):
+    """
+    A reference to a string object (copied from Long class beneath)
+    """
+
+    _instance = None
+
+    def __new__(cls) -> "String":
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+
+    def encode(self):
+        return "Ljava/lang/String;"
+
+    def math(self):
+        return "string"
 
 
 @dataclass(frozen=True)
@@ -604,6 +641,10 @@ class Value:
                         return f"[C:{chars}]"
                     case _:
                         raise NotImplementedError()
+            case String():
+                s = str(self.value)
+                ss = s.replace("\\", "\\\\").replace('"', '\\"')
+                return '"' + ss + '"'
             case _:
                 raise NotImplementedError(f"Cannot encode {self.type}")
 
@@ -623,6 +664,10 @@ class Value:
     @classmethod
     def array(cls, type: Type, content: Iterable) -> Self:
         return cls(Array(type), tuple(content))
+
+    @classmethod
+    def string(cls, s: str) -> Self:
+        return cls(String(), s)
 
     @classmethod
     def from_json(cls, json: dict | None) -> Self:
@@ -660,9 +705,10 @@ class ValueParser:
         token_specification = [
             ("OPEN_ARRAY", r"\[[IC]:"),
             ("CLOSE_ARRAY", r"\]"),
+            ("STRING", r'"([^"\\]|\\.)*"'),  # STRING : double-quoted, allows escaped chars
             ("INT", r"-?\d+"),
             ("BOOL", r"true|false"),
-            ("CHAR", r"'[^']'"),
+            ("CHAR", r"'[^']'"),  # CHAR : 1 char
             ("COMMA", r","),
             ("SKIP", r"[ \t]+"),
         ]
@@ -708,6 +754,8 @@ class ValueParser:
                 return Value.int(self.parse_int())
             case "CHAR":
                 return Value.char(self.parse_char())
+            case "STRING":
+                return Value.string(self.parse_string())
             case "BOOL":
                 return Value.boolean(self.parse_bool())
             case "OPEN_ARRAY":
@@ -725,6 +773,12 @@ class ValueParser:
     def parse_char(self):
         tok = self.expect("CHAR")
         return tok.value[1]
+
+    def parse_string(self):
+        tok = self.expect("STRING")
+        s = tok.value[1:-1]
+        s = s.replace('\\"', '"').replace('\\\\', '\\')
+        return s
 
     def parse_array(self):
         key = self.expect("OPEN_ARRAY")
