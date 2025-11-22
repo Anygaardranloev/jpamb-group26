@@ -146,9 +146,14 @@ class Push(Opcode):
                         return "iconst_5"
                 return f"ldc [{self.value.value}]"
             case jvm.Reference():
-                assert self.value.value is None, f"what is {self.value}"
-                return "aconst_null"
+                val = self.value.value
 
+                if isinstance(val, str):
+                    return f"ldc [\"{val}\"]"
+                
+                if val is None:
+                    return "aconst_null"
+                raise AssertionError(f"unexpected reference value: {self.value}")
         raise NotImplementedError(f"Unhandled {self!r}")
 
     def semantics(self) -> str | None:
@@ -400,7 +405,7 @@ class InvokeVirtual(Opcode):
         )
 
     def real(self) -> str:
-        return f"invokevirtual {self.method.dashed()}"
+        return f"invokevirtual {self.method.classname.slashed()}/{self.method.extension.name}"
 
     def semantics(self) -> str | None:
         semantics = """

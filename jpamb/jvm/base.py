@@ -552,7 +552,7 @@ class AbsMethodID(Absolute[MethodID]):
     @classmethod
     def from_json(cls, json: dict) -> "Self":
         return cls(
-            classname=ClassName.decode(json["ref"]["name"]),
+            classname=ClassName.decode(json["ref"]["name"]) if "ref" in json else ClassName.decode(json["name"]),
             extension=MethodID(
                 name=json["name"],
                 params=ParameterType.from_json(json["args"]),
