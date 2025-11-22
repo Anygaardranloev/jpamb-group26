@@ -246,13 +246,7 @@ def step(state: State) -> State | str:
                 caller.pc += 1
                 return state
             else:
-                return "ok"
-        case jvm.Binary(type=jvm.Int(), operant=jvm.BinaryOpr.Mul):
-            v2, v1 = frame.stack.pop(), frame.stack.pop()
-            assert v1.type is jvm.Int() and v2.type is jvm.Int(), f"expected ints, got {v1}, {v2}"
-            frame.stack.push(jvm.Value.int(v1.value * v2.value))
-            frame.pc += 1
-            return state        
+                return "ok"  
         case jvm.Binary(type=jvm.Int(), operant=jvm.BinaryOpr.Mul):
             return _bin_int(frame, state, lambda a, b: a * b)
 

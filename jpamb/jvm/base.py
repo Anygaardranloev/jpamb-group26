@@ -143,12 +143,22 @@ class Type(ABC):
                     return Reference()
                 case "boolean":
                     return Boolean()
+                case "string":
+                    return Reference()
         if "base" in json:
             return Type.from_json(json["base"])
         if "kind" in json:
             match json["kind"]:
                 case "array":
                     return Array(Type.from_json(json["type"]))
+                case "class":
+                    match json["name"]:
+                        case "java/lang/String": 
+                            return Object(ClassName.decode("java/lang/String"))
+                        case name:
+                            raise NotImplementedError(
+                                f"Unknown class {name}, in Type.from_json: {json!r}"
+                            )
                 case kind:
                     raise NotImplementedError(
                         f"Unknown kind {kind}, in Type.from_json: {json!r}"
@@ -663,6 +673,7 @@ class ValueParser:
             ("INT", r"-?\d+"),
             ("BOOL", r"true|false"),
             ("CHAR", r"'[^']'"),
+            ("STRING", r'"[^"]*"'),
             ("COMMA", r","),
             ("SKIP", r"[ \t]+"),
         ]
@@ -712,6 +723,8 @@ class ValueParser:
                 return Value.boolean(self.parse_bool())
             case "OPEN_ARRAY":
                 return self.parse_array()
+            case "STRING":
+                return self.parse_string()
         self.expected("char")
 
     def parse_int(self):
@@ -758,3 +771,7 @@ class ValueParser:
             inputs.append(parser())
 
         return inputs
+    
+    def parse_string(self):
+        s = self.expect("STRING")
+        return Value(Object(ClassName.decode("java/lang/String")), s.value)

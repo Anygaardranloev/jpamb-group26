@@ -172,6 +172,29 @@
     },
     {
       "access": [
+        "public",
+        "static",
+        "final",
+        "enum"
+      ],
+      "annotations": [],
+      "name": "STRING",
+      "type": {
+        "annotations": [],
+        "args": [],
+        "inner": {
+          "annotations": [],
+          "args": [],
+          "inner": null,
+          "name": "TagType"
+        },
+        "kind": "class",
+        "name": "jpamb/utils/Tag"
+      },
+      "value": null
+    },
+    {
+      "access": [
         "private",
         "static",
         "final",
@@ -541,7 +564,7 @@
             "opr": "push",
             "value": {
               "type": "integer",
-              "value": 7
+              "value": 8
             }
           },
           {
@@ -772,6 +795,37 @@
           },
           {
             "offset": 48,
+            "opr": "dup",
+            "words": 1
+          },
+          {
+            "offset": 49,
+            "opr": "push",
+            "value": {
+              "type": "integer",
+              "value": 7
+            }
+          },
+          {
+            "field": {
+              "class": "jpamb/utils/Tag$TagType",
+              "name": "STRING",
+              "type": {
+                "kind": "class",
+                "name": "jpamb/utils/Tag$TagType"
+              }
+            },
+            "offset": 51,
+            "opr": "get",
+            "static": true
+          },
+          {
+            "offset": 54,
+            "opr": "array_store",
+            "type": "ref"
+          },
+          {
+            "offset": 55,
             "opr": "return",
             "type": "ref"
           }
@@ -1240,6 +1294,66 @@
             "static": true
           },
           {
+            "class": "jpamb/utils/Tag$TagType",
+            "offset": 92,
+            "opr": "new"
+          },
+          {
+            "offset": 95,
+            "opr": "dup",
+            "words": 1
+          },
+          {
+            "offset": 96,
+            "opr": "push",
+            "value": {
+              "type": "string",
+              "value": "STRING"
+            }
+          },
+          {
+            "offset": 98,
+            "opr": "push",
+            "value": {
+              "type": "integer",
+              "value": 7
+            }
+          },
+          {
+            "access": "special",
+            "method": {
+              "args": [
+                {
+                  "kind": "class",
+                  "name": "java/lang/String"
+                },
+                "int"
+              ],
+              "is_interface": false,
+              "name": "<init>",
+              "ref": {
+                "kind": "class",
+                "name": "jpamb/utils/Tag$TagType"
+              },
+              "returns": null
+            },
+            "offset": 100,
+            "opr": "invoke"
+          },
+          {
+            "field": {
+              "class": "jpamb/utils/Tag$TagType",
+              "name": "STRING",
+              "type": {
+                "kind": "class",
+                "name": "jpamb/utils/Tag$TagType"
+              }
+            },
+            "offset": 103,
+            "opr": "put",
+            "static": true
+          },
+          {
             "access": "static",
             "method": {
               "args": [],
@@ -1257,7 +1371,7 @@
                 }
               }
             },
-            "offset": 92,
+            "offset": 106,
             "opr": "invoke"
           },
           {
@@ -1272,12 +1386,12 @@
                 }
               }
             },
-            "offset": 95,
+            "offset": 109,
             "opr": "put",
             "static": true
           },
           {
-            "offset": 98,
+            "offset": 112,
             "opr": "return",
             "type": null
           }
@@ -1313,8 +1427,12 @@
             "offset": 36
           },
           {
-            "line": 11,
+            "line": 19,
             "offset": 42
+          },
+          {
+            "line": 11,
+            "offset": 48
           }
         ],
         "max_locals": 0,
