@@ -143,14 +143,14 @@ public class Strings {
     @Tag({ STRING })
     public static void substringInBounds() {
         String s = "hello";
-        s.substring = s.substring(1,3);
+        s = s.substring(1, 3);
     }
 
     @Case("() -> out of bounds")
     @Tag({ STRING })
     public static void substringOutOfBounds() {
         String s = "hey";
-        s.substring = s.substring(3,10);
+        s = s.substring(3, 10);
     }
 
 }
