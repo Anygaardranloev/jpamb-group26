@@ -196,41 +196,44 @@ def step(state: State) -> State | str:
             if ms.startswith("java/lang/String."):
                 class_and_name, _, desc = ms.partition(":")
                 _cls, _, name = class_and_name.rpartition(".")
-                if name == "length" and desc == "()I":
-                    recv = frame.stack.pop()
-                    assert recv.type == jvm.Ref("java/lang/String"), f"expected String receiver, got {recv}"
-                    frame.stack.push(jvm.Value.int(len(recv.value)))
-                    frame.pc += 1
-                    return state
-                elif name == "concat":
-                    arg = frame.stack.pop()
-                    recv = frame.stack.pop()
-                    assert recv.type == jvm.Ref("java/lang/String"), f"expected String receiver, got {recv}"
-                    assert arg.type == jvm.Ref("java/lang/String"), f"expected String argument, got {arg}"
-                    frame.stack.push(make_string_value(str(recv.value) + str(arg.value)))
-                    frame.pc += 1
-                    return state
-                elif name == "equals":
-                    other = frame.stack.pop()
-                    recv = frame.stack.pop()
-                    eq = False
-                    if recv.type == jvm.Ref("java/lang/String") and other.type == jvm.Ref("java/lang/String"):
-                        eq = (recv.value == other.value)
-                    frame.stack.push(jvm.Value.int(1 if eq else 0))
-                    frame.pc += 1
-                    return state
-                elif name == "equalsIgnoreCase":
-                    other = frame.stack.pop()
-                    recv = frame.stack.pop()
-                    eq = False
-                    if recv.type == jvm.Ref("java/lang/String") and other.type == jvm.Ref("java/lang/String"):
-                        eq = (str(recv.value).lower() == str(other.value).lower())
-                    frame.stack.push(jvm.Value.int(1 if eq else 0))
-                    frame.pc += 1
-                    return state
-                # TODO: More string things
-            frame.pc += 1
-            return state
+                match name:
+                    case "length": # desc == "()I"
+                        recv = frame.stack.pop()
+                        assert recv.type == jvm.Ref("java/lang/String"), f"expected String receiver, got {recv}"
+                        frame.stack.push(jvm.Value.int(len(recv.value)))
+                        frame.pc += 1
+                        return state
+                    case "concat":
+                        arg = frame.stack.pop()
+                        recv = frame.stack.pop()
+                        assert recv.type == jvm.Ref("java/lang/String"), f"expected String receiver, got {recv}"
+                        assert arg.type == jvm.Ref("java/lang/String"), f"expected String argument, got {arg}"
+                        frame.stack.push(make_string_value(str(recv.value) + str(arg.value)))
+                        frame.pc += 1
+                        return state
+                    case "equals":
+                        other = frame.stack.pop()
+                        recv = frame.stack.pop()
+                        eq = False
+                        if recv.type == jvm.Ref("java/lang/String") and other.type == jvm.Ref("java/lang/String"):
+                            eq = (recv.value == other.value)
+                        frame.stack.push(jvm.Value.int(1 if eq else 0))
+                        frame.pc += 1
+                        return state
+                    case "equalsIgnoreCase":
+                        other = frame.stack.pop()
+                        recv = frame.stack.pop()
+                        eq = False
+                        if recv.type == jvm.Ref("java/lang/String") and other.type == jvm.Ref("java/lang/String"):
+                            eq = (str(recv.value).lower() == str(other.value).lower())
+                        frame.stack.push(jvm.Value.int(1 if eq else 0))
+                        frame.pc += 1
+                        return state
+                    case name:
+                        raise NotImplementedError(f"Don't know how to handle: {name}")
+            else: # not a string
+                frame.pc += 1
+                return state
         case jvm.InvokeStatic(method=_m):
             frame.pc += 1
             return state
