@@ -1,15 +1,11 @@
-import jpamb
-from jpamb import jvm
 from dataclasses import dataclass, field
-from collections.abc import Iterable
-from jpamb.jvm.base import Value
 import unicodedata
 
 import sys
 from loguru import logger
 
 from dataclasses import dataclass
-from typing import Literal
+from typing import FrozenSet, Literal
 
 logger.remove()
 logger.add(sys.stderr, format="[{level}] {message}")
@@ -17,31 +13,31 @@ logger.add(sys.stderr, format="[{level}] {message}")
 Sign = Literal["letters", "numbers", "symbols"]
 Encoding = Literal["latin1", "utf16"]
 
-@dataclass
-class SignSet:
-    signs: set[Sign]
-    encodings: set[Encoding]
+@dataclass(frozen=True)
+class StringSign:
+    signs: FrozenSet[Sign]
+    encodings: FrozenSet[Encoding]
+    length: int
 
     def __contains__(self, s: str) -> bool:
         """All chars in the string must match both sign and encoding."""
         for ch in s:
-            if SignSet.sign_of_char(ch) not in self.signs:
+            if StringSign.sign_of_char(ch) not in self.signs:
                 return False
-            if SignSet.encoding_of_char(ch) not in self.encodings:
+            if StringSign.encoding_of_char(ch) not in self.encodings:
                 return False
         return True
 
     @classmethod
-    def abstract(cls, strings: set[str]) -> "SignSet":
+    def abstract(cls, string: str) -> "StringSign":
         sign_set: set[Sign] = set()
         enc_set: set[Encoding] = set()
 
-        for s in strings:
-            for ch in s:
-                sign_set.add(SignSet.sign_of_char(ch))
-                enc_set.add(SignSet.encoding_of_char(ch))
+        for ch in string:
+            sign_set.add(StringSign.sign_of_char(ch))
+            enc_set.add(StringSign.encoding_of_char(ch))
 
-        return cls(set(sign_set), set(enc_set))
+        return cls(frozenset(sign_set), frozenset(enc_set), len(string))
     
     @staticmethod
     def sign_of_char(ch: str) -> Sign:
@@ -60,28 +56,69 @@ class SignSet:
         if cp <= 0xFF:
             return "latin1"
         return "utf16"
+        
+    def __str__(self) -> str:
+        signs = ", ".join(sorted(self.signs))
+        encs  = ", ".join(sorted(self.encodings))
+        return f"<StringSign signs=[{signs}] encodings=[{encs}] length={self.length}>"
+
+    __repr__ = __str__
+
+@dataclass(frozen=True)
+class SignSet:
+    stringSet: FrozenSet[StringSign]
+
+    @classmethod
+    def abstract(cls, strings: set[str]) -> "SignSet":
+        
+        stringSet = frozenset(StringSign.abstract(s) for s in strings)
+
+        return cls(stringSet)
     
     # Lattice ops
     def join(self, other: "SignSet") -> "SignSet":
-        return SignSet(
-            signs=self.signs | other.signs,
-            encodings=self.encodings | other.encodings,
-        )
+        # join is union of abstractions
+        if self is BOTTOM:
+            return other
+        if other is BOTTOM:
+            return self
+
+        return SignSet(self.stringSet | other.stringSet)
 
     def meet(self, other: "SignSet") -> "SignSet":
-        return SignSet(
-            signs=self.signs & other.signs,
-            encodings=self.encodings & other.encodings,
-        )
+        # meet is intersection of abstractions
+        if self is TOP:
+            return other
+        if other is TOP:
+            return self
+
+        return SignSet(self.stringSet & other.stringSet)
 
     def is_leq(self, other: "SignSet") -> bool:
-        return self.signs <= other.signs and self.encodings <= other.encodings
+        # self <= other if all abstractions in self are in other
+        return self.stringSet <= other.stringSet
+    
+    def __str__(self) -> str:
+        if not self.stringSet:
+            return "<SignSet ∅>"
 
-BOTTOM = SignSet(set(), set())
+        parts = "\n  ".join(str(s) for s in sorted(self.stringSet, key=lambda x: x.length))
+        return f"<SignSet {{\n  {parts}\n}}>"
+
+    __repr__ = __str__
+
+BOTTOM = SignSet(frozenset())
+
 TOP = SignSet(
-    set({"letters", "numbers", "symbols"}),
-    set({"latin1", "utf16"})
+    frozenset({
+        StringSign(
+            signs=frozenset({"letters", "numbers", "symbols"}),
+            encodings=frozenset({"latin1", "utf16"}),
+            length=-1 # -1 = ANY length
+        )
+    })
 )
+
 
 if __name__ == "__main__":
     C = SignSet.abstract({"A3", "ø?", "🙂"})
