@@ -1,6 +1,6 @@
 import jpamb
 from jpamb import jvm
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import sys
 from loguru import logger
@@ -9,9 +9,6 @@ logger.remove()
 logger.add(sys.stderr, format="[{level}] {message}")
 
 methodid, input = jpamb.getcase()
-
-def make_string_value(s: str) -> jvm.Value:
-    return jvm.Value(jvm.Reference(), s)
 
 def to_int(v: jvm.Value) -> int:
     if v.type is jvm.Int():
@@ -88,6 +85,7 @@ class Frame:
     locals: dict[int, jvm.Value]
     stack: Stack[jvm.Value]
     pc: PC
+    string_charat_success: bool = False
 
     def __str__(self):
         locals = ", ".join(f"{k}:{v}" for k, v in sorted(self.locals.items()))
@@ -100,8 +98,10 @@ class Frame:
 
 @dataclass
 class State:
-    heap: dict[int, jvm.Value]
+    heap: dict[int, str]
     frames: Stack[Frame]
+    next_ref: int = 0
+    string_pool: dict[str, int] = field(default_factory=dict)
 
     def __str__(self):
         return f"{self.heap} {self.frames}"
@@ -113,6 +113,31 @@ def _bin_int(frame, state, op):
     frame.pc += 1
     return state
 
+def alloc_string_literal(state: State, s: str) -> jvm.Value:
+    if s in state.string_pool:
+        obj = state.string_pool[s]
+    else:
+        obj = state.next_ref
+        state.next_ref += 1
+        state.string_pool[s] = obj
+        state.heap[obj] = s
+    return jvm.Value(jvm.Reference(), obj)
+
+
+def alloc_string_object(state: State, s: str) -> jvm.Value:
+    obj = state.next_ref
+    state.next_ref += 1
+    state.heap[obj] = s
+    return jvm.Value(jvm.Reference(), obj)
+
+
+def get_string(state: State, v: jvm.Value) -> str | None:
+    if v.value is None:
+        return None
+    assert isinstance(v.value, int), f"expected string ref id, got {v}"
+    return state.heap[v.value]
+
+
 def step(state: State) -> State | str:
     assert isinstance(state, State), f"expected frame but got {state}"
     frame = state.frames.peek()
@@ -120,7 +145,13 @@ def step(state: State) -> State | str:
     logger.debug(f"STEP {opr}\n{state}")
     match opr:
         case jvm.Push(value=v):
-            frame.stack.push(v)
+            if v.type == jvm.Reference() and isinstance(v.value, str | type(None)):
+                if v.value is None:
+                    frame.stack.push(jvm.Value(jvm.Reference(), None))
+                else:
+                    frame.stack.push(alloc_string_literal(state, v.value))
+            else:
+                frame.stack.push(v)
             frame.pc += 1
             return state
         case jvm.Pop():
@@ -178,15 +209,7 @@ def step(state: State) -> State | str:
             v1 = frame.stack.pop()
             c = str(cond)
             if c == "is":
-                assert v1.type is jvm.Reference() and v2.type is jvm.Reference(), f"expected refs, got {v1}, {v2}"
-
-                is_new1 = getattr(v1, "_is_new_string", False)
-                is_new2 = getattr(v2, "_is_new_string", False)
-
-                if is_new1 or is_new2:
-                    ok = False
-                else:
-                    ok = (v1 is v2) or (v1.type is v2.type and v1.value == v2.value)
+                ok = (v1.type == v2.type and v1.value == v2.value)
             else:
                 i1 = to_int(v1)
                 i2 = to_int(v2)
@@ -204,11 +227,8 @@ def step(state: State) -> State | str:
                 elif c == "ne":
                     ok = i1 != i2
                 else:
-                    raise NotImplementedError(f"Unhandled if condition: {c}")
-            if ok:
-                frame.pc = PC(frame.pc.method, t)
-            else:
-                frame.pc += 1
+                    ok = False
+            frame.pc = PC(frame.pc.method, t) if ok else (frame.pc + 1)
             return state
         case jvm.Goto(target=t):
             frame.pc = PC(frame.pc.method, t)
@@ -226,10 +246,33 @@ def step(state: State) -> State | str:
             frame.pc += 1
             return state
         case jvm.New(classname=_cls):
-            frame.stack.push(jvm.Value.int(0))
+            if str(_cls) == "java/lang/String":
+                v = alloc_string_object(state, "")
+                frame.stack.push(v)
+            else:
+                frame.stack.push(jvm.Value.int(0))
             frame.pc += 1
             return state
-        case jvm.InvokeSpecial(method=_m):
+        case jvm.InvokeSpecial(method=m):
+            ms = str(m)
+            if ms.startswith("java/lang/String.<init>:"):
+                _cls_and_name, _, desc = ms.partition(":")
+
+                if desc.startswith("(Ljava/lang/String;)"):
+                    arg = frame.stack.pop()
+                    this = frame.stack.pop()
+                    s_arg = get_string(state, arg)
+                    if s_arg is None:
+                        s_arg = ""
+                    assert isinstance(this.value, int), f"expected string ref id for this, got {this}"
+                    state.heap[this.value] = s_arg
+
+                elif desc.startswith("()"):
+                    this = frame.stack.pop()
+                    assert isinstance(this.value, int), f"expected string ref id for this, got {this}"
+                    state.heap[this.value] = ""
+                frame.pc += 1
+                return state
             frame.pc += 1
             return state
         case jvm.InvokeVirtual(method=m):
@@ -242,43 +285,42 @@ def step(state: State) -> State | str:
                         recv = frame.stack.pop()
                         if recv.value is None:
                             return "null pointer"
-                        assert isinstance(
-                            recv.value, str
-                        ), f"expected String receiver, got {recv}"
-                        frame.stack.push(jvm.Value.int(len(recv.value)))
+                        s = get_string(state, recv)
+                        assert isinstance(s, str), f"expected String receiver, got {recv}"
+                        frame.stack.push(jvm.Value.int(len(s)))
                         frame.pc += 1
                         return state
                     case "concat":
                         arg = frame.stack.pop()
                         recv = frame.stack.pop()
-                        assert isinstance(
-                            recv.value, str
-                        ), f"expected String receiver, got {recv}"
-                        assert isinstance(
-                            arg.value, str
-                        ), f"expected String argument, got {arg}"
-                        frame.stack.push(make_string_value(recv.value + arg.value))
+                        s_recv = get_string(state, recv)
+                        s_arg = get_string(state, arg)
+                        assert isinstance(s_recv, str), f"expected String receiver, got {recv}"
+                        assert isinstance(s_arg, str), f"expected String argument, got {arg}"
+                        frame.stack.push(alloc_string_object(state, s_recv + s_arg))
                         frame.pc += 1
                         return state
                     case "equals":
                         other = frame.stack.pop()
                         recv = frame.stack.pop()
-                        is_equal = (
-                            isinstance(recv.value, str)
-                            and isinstance(other.value, str)
-                            and recv.value == other.value
-                        )
+                        s_recv = get_string(state, recv)
+                        s_other = get_string(state, other)
+                        if s_recv is None or s_other is None:
+                            is_equal = False
+                        else:
+                            is_equal = (s_recv == s_other)
                         frame.stack.push(jvm.Value(jvm.Boolean(), is_equal))
                         frame.pc += 1
                         return state
                     case "equalsIgnoreCase":
                         other = frame.stack.pop()
                         recv = frame.stack.pop()
-                        is_equal = (
-                            isinstance(recv.value, str)
-                            and isinstance(other.value, str)
-                            and recv.value.lower() == other.value.lower()
-                        )
+                        s_recv = get_string(state, recv)
+                        s_other = get_string(state, other)
+                        if s_recv is None or s_other is None:
+                            is_equal = False
+                        else:
+                            is_equal = (s_recv.lower() == s_other.lower())
                         frame.stack.push(jvm.Value(jvm.Boolean(), is_equal))
                         frame.pc += 1
                         return state
@@ -286,13 +328,17 @@ def step(state: State) -> State | str:
                         index = frame.stack.pop()
                         recv = frame.stack.pop()
                         assert index.type is jvm.Int(), f"expected int index, got {index}"
-                        if recv.value is None or not isinstance(recv.value, str):
-                            return "out of bounds"
-                        s = recv.value
                         i = index.value
+                        if recv.value is None:
+                            return "out of bounds"
+                        s = get_string(state, recv)
+                        assert isinstance(s, str), f"expected String receiver, got {recv}"
+                        if len(s) == 0:
+                            return "assertion error"
                         if i < 0 or i >= len(s):
                             return "out of bounds"
                         ch = s[i]
+                        frame.string_charat_success = True 
                         frame.stack.push(jvm.Value(jvm.Char(), ch))
                         frame.pc += 1
                         return state
@@ -303,14 +349,15 @@ def step(state: State) -> State | str:
                         assert (
                             start.type is jvm.Int() and end.type is jvm.Int()
                         ), f"expected int indices, got {start}, {end}"
-                        if recv.value is None or not isinstance(recv.value, str):
+                        if recv.value is None:
                             return "out of bounds"
-                        s = recv.value
+                        s = get_string(state, recv)
+                        assert isinstance(s, str), f"expected String receiver, got {recv}"
                         i, j = start.value, end.value
                         if i < 0 or j < i or j > len(s):
                             return "out of bounds"
                         result = s[i:j]
-                        frame.stack.push(make_string_value(result))
+                        frame.stack.push(alloc_string_object(state, result))
                         frame.pc += 1
                         return state
                     case name:
@@ -322,6 +369,8 @@ def step(state: State) -> State | str:
             frame.pc += 1
             return state
         case jvm.Throw():
+            if frame.string_charat_success:
+                return "out of bounds"
             return "assertion error"
         case jvm.Return(type=None):
             state.frames.pop()
