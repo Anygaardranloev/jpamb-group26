@@ -56,5 +56,25 @@ jpamb.cases.Simple.justReturn:()I                            () -> ok
 jpamb.cases.Simple.justReturnNothing:()V                     () -> ok
 jpamb.cases.Simple.multiError:(Z)I                           (false) -> assertion error
 jpamb.cases.Simple.multiError:(Z)I                           (true) -> divide by zero
+jpamb.cases.Strings.charAtInBounds:()V                       () -> ok
+jpamb.cases.Strings.charAtNull:()V                           () -> out of bounds
+jpamb.cases.Strings.charAtOutOfBounds:()V                    () -> out of bounds
+jpamb.cases.Strings.lenOfNonNull:()V                         () -> ok
+jpamb.cases.Strings.lenOfNull:()V                            () -> null pointer
+jpamb.cases.Strings.stringEqualsLiteralFails:()V             () -> assertion error
+jpamb.cases.Strings.stringEqualsLiteralOk:()V                () -> ok
+jpamb.cases.Strings.stringIsEmptyFails:()V                   () -> assertion error
+jpamb.cases.Strings.stringIsEmptyOk:()V                      () -> ok
+jpamb.cases.Strings.stringLenSometimesNull:(I)V              (0) -> ok
+jpamb.cases.Strings.stringLenSometimesNull:(I)V              (11) -> null pointer
+jpamb.cases.Strings.stringLengthAssertionFails:()V           () -> assertion error
+jpamb.cases.Strings.stringLengthAssertionOk:()V              () -> ok
+jpamb.cases.Strings.stringReferenceEqualityFails:()V         () -> assertion error
+jpamb.cases.Strings.stringReferenceEqualityOk:()V            () -> ok
+jpamb.cases.Strings.stringSpellsHeyEmpty:()V                 () -> assertion error
+jpamb.cases.Strings.stringSpellsHeyFails:()V                 () -> out of bounds
+jpamb.cases.Strings.stringSpellsHeyOk:()V                    () -> ok
+jpamb.cases.Strings.substringInBounds:()V                    () -> ok
+jpamb.cases.Strings.substringOutOfBounds:()V                 () -> out of bounds
 jpamb.cases.Tricky.collatz:(I)V                              (0) -> assertion error
 jpamb.cases.Tricky.collatz:(I)V                              (24) -> ok
