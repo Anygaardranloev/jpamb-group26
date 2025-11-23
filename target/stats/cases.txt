@@ -59,6 +59,19 @@ jpamb.cases.Simple.multiError:(Z)I                           (true) -> divide by
 jpamb.cases.Strings.charAtInBounds:()V                       () -> ok
 jpamb.cases.Strings.charAtNull:()V                           () -> out of bounds
 jpamb.cases.Strings.charAtOutOfBounds:()V                    () -> out of bounds
+jpamb.cases.Strings.concatNested:()V                         () -> ok
+jpamb.cases.Strings.concatReferenceEquality:()V              () -> assertion error
+jpamb.cases.Strings.concatSimpleOk:()V                       () -> ok
+jpamb.cases.Strings.concatSubstringChainOk:()V               () -> ok
+jpamb.cases.Strings.concatWithNullReceiver:()V               () -> null pointer
+jpamb.cases.Strings.equalsGuardsLengthWrongWay:(I)V          (0) -> null pointer
+jpamb.cases.Strings.equalsGuardsLengthWrongWay:(I)V          (1) -> ok
+jpamb.cases.Strings.equalsIgnoreCaseFails:()V                () -> assertion error
+jpamb.cases.Strings.equalsIgnoreCaseGuardsLengthWrongWay:(I)V (0) -> null pointer
+jpamb.cases.Strings.equalsIgnoreCaseGuardsLengthWrongWay:(I)V (1) -> ok
+jpamb.cases.Strings.equalsIgnoreCaseOk:()V                   () -> ok
+jpamb.cases.Strings.equalsIgnoreCaseSubstringFails:()V       () -> assertion error
+jpamb.cases.Strings.equalsIgnoreCaseSubstringOk:()V          () -> ok
 jpamb.cases.Strings.lenOfNonNull:()V                         () -> ok
 jpamb.cases.Strings.lenOfNull:()V                            () -> null pointer
 jpamb.cases.Strings.stringEqualsLiteralFails:()V             () -> assertion error
@@ -74,7 +87,13 @@ jpamb.cases.Strings.stringReferenceEqualityOk:()V            () -> ok
 jpamb.cases.Strings.stringSpellsHeyEmpty:()V                 () -> assertion error
 jpamb.cases.Strings.stringSpellsHeyFails:()V                 () -> out of bounds
 jpamb.cases.Strings.stringSpellsHeyOk:()V                    () -> ok
+jpamb.cases.Strings.substringCharAtAssertFails:()V           () -> out of bounds
+jpamb.cases.Strings.substringCharAtInBounds:()V              () -> ok
+jpamb.cases.Strings.substringConcatEqualsIgnoreCaseFails:()V () -> assertion error
+jpamb.cases.Strings.substringConcatEqualsIgnoreCaseOk:()V    () -> ok
 jpamb.cases.Strings.substringInBounds:()V                    () -> ok
+jpamb.cases.Strings.substringIndexArithmeticOutOfBounds:()V  () -> out of bounds
 jpamb.cases.Strings.substringOutOfBounds:()V                 () -> out of bounds
+jpamb.cases.Strings.substringReferenceEquality:()V           () -> assertion error
 jpamb.cases.Tricky.collatz:(I)V                              (0) -> assertion error
 jpamb.cases.Tricky.collatz:(I)V                              (24) -> ok
