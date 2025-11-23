@@ -155,6 +155,8 @@ class Type(ABC):
                     match json["name"]:
                         case "java/lang/String": 
                             return Object(ClassName.decode("java/lang/String"))
+                        case "java/lang/Object":
+                            return Object(ClassName.decode("java/lang/Object"))
                         case name:
                             raise NotImplementedError(
                                 f"Unknown class {name}, in Type.from_json: {json!r}"

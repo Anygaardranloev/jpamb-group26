@@ -114,8 +114,13 @@ def step(state: State) -> State | str:
             frame.stack.push(v)
             frame.pc += 1
             return state
-        case jvm.Load(type=jvm.Int(), index=i):
+        case jvm.Load(type=_t, index=i):
             frame.stack.push(frame.locals[i])
+            frame.pc += 1
+            return state
+        case jvm.Store(type=_t, index=i):
+            v = frame.stack.pop()
+            frame.locals[i] = v
             frame.pc += 1
             return state
         case jvm.Binary(type=jvm.Int(), operant=jvm.BinaryOpr.Div):
@@ -193,7 +198,7 @@ def step(state: State) -> State | str:
             return state
         case jvm.InvokeVirtual(method=m):
             ms = str(m) 
-            if ms.startswith("java/lang/String."):
+            if ms.startswith("java/lang/String"):
                 class_and_name, _, desc = ms.partition(":")
                 _cls, _, name = class_and_name.rpartition(".")
                 match name:
