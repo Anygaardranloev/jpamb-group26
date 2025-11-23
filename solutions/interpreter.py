@@ -293,10 +293,15 @@ def step(state: State) -> State | str:
                     case "concat":
                         arg = frame.stack.pop()
                         recv = frame.stack.pop()
+                        if recv.value is None:
+                            return "null pointer"
                         s_recv = get_string(state, recv)
-                        s_arg = get_string(state, arg)
                         assert isinstance(s_recv, str), f"expected String receiver, got {recv}"
-                        assert isinstance(s_arg, str), f"expected String argument, got {arg}"
+                        if arg.value is None:
+                            s_arg = "null"
+                        else:
+                            s_arg = get_string(state, arg)
+                            assert isinstance(s_arg, str), f"expected String argument, got {arg}"
                         frame.stack.push(alloc_string_object(state, s_recv + s_arg))
                         frame.pc += 1
                         return state
