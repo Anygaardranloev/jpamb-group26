@@ -41,6 +41,8 @@ class Opcode(ABC):
                 opr = NewArray
             case "dup":
                 opr = Dup
+            case "pop":
+                opr = Pop
             case "array_store":
                 opr = ArrayStore
             case "array_load":
@@ -254,7 +256,29 @@ class Dup(Opcode):
 
     def __str__(self):
         return f"dup {self.words}"
+class Pop(Opcode):
+    """The pop opcode: remove top value from the operand stack"""
 
+    @classmethod
+    def from_json(cls, json: dict) -> "Opcode":
+        return cls(offset=json["offset"])
+
+    def real(self) -> str:
+        return "pop"
+
+    def semantics(self) -> str | None:
+        semantics = """
+        bc[i].opr = 'pop'
+        -------------------------[pop]
+        bc |- (i, s + [v]) -> (i+1, s)
+        """
+        return None
+
+    def mnemonic(self) -> str:
+        return "pop"
+
+    def __str__(self):
+        return "pop"
 
 @dataclass(frozen=True, order=True)
 class ArrayStore(Opcode):

@@ -114,6 +114,10 @@ def step(state: State) -> State | str:
             frame.stack.push(v)
             frame.pc += 1
             return state
+        case jvm.Pop():
+            frame.stack.pop()
+            frame.pc += 1
+            return state
         case jvm.Load(type=_t, index=i):
             frame.stack.push(frame.locals[i])
             frame.pc += 1
