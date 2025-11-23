@@ -21,7 +21,8 @@ public class Runtime {
       Loops.class,
       Tricky.class,
       jpamb.cases.Arrays.class,
-      Calls.class);
+      Calls.class,
+      Strings.class);
 
   public static Case[] cases(Method m) {
     var cases = m.getAnnotation(Cases.class);
@@ -52,6 +53,8 @@ public class Runtime {
       b.append("[I");
     } else if (c.equals(char[].class)) {
       b.append("[C");
+    } else if (c.equals(String.class)) {
+      b.append("Ljava/lang/String;");
     } else {
       throw new RuntimeException("Unknown type:" + c.toString());
     }
@@ -83,6 +86,12 @@ public class Runtime {
         case 'C' -> {
           params.add(char.class);
           break;
+        }
+        case 'L' -> {
+          if (s.startsWith("Ljava/lang/String;", i)) {
+            params.add(String.class);
+            i += "Ljava/lang/String;".length() - 1;
+          }
         }
         case '[' -> {
           i += 1;

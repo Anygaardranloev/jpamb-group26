@@ -170,6 +170,8 @@ class Push(Opcode):
                     return "ldc"
             case jvm.Reference():
                 return "aconst_null"
+            case jvm.String():
+                return "ldc"
 
         raise NotImplementedError(f"Unhandled {self!r}")
 
