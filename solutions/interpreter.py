@@ -11,7 +11,16 @@ logger.add(sys.stderr, format="[{level}] {message}")
 methodid, input = jpamb.getcase()
 
 def make_string_value(s: str) -> jvm.Value:
-    return jvm.Value(jvm.Ref("java/lang/String"), s)
+    return jvm.Value(jvm.Reference(), s)
+
+def to_int(v: jvm.Value) -> int:
+    if v.type is jvm.Int():
+        return v.value
+    if v.type is jvm.Char():
+        return ord(v.value)
+    if v.type is jvm.Boolean():
+        return 1 if v.value else 0
+    raise AssertionError(f"expected int/char/bool, got {v}")
 
 @dataclass
 class PC:
@@ -167,16 +176,39 @@ def step(state: State) -> State | str:
         case jvm.If(condition=cond, target=t):
             v2 = frame.stack.pop()
             v1 = frame.stack.pop()
-            assert v1.type is jvm.Int() and v2.type is jvm.Int(), f"expected ints, got {v1}, {v2}"
             c = str(cond)
-            if c == "gt": ok = (v1.value >  v2.value)
-            elif c == "ge": ok = (v1.value >= v2.value)
-            elif c == "lt": ok = (v1.value <  v2.value)
-            elif c == "le": ok = (v1.value <= v2.value)
-            elif c == "eq": ok = (v1.value == v2.value)
-            elif c == "ne": ok = (v1.value != v2.value)
-            else: ok = False
-            frame.pc = PC(frame.pc.method, t) if ok else (frame.pc + 1)
+            if c == "is":
+                assert v1.type is jvm.Reference() and v2.type is jvm.Reference(), f"expected refs, got {v1}, {v2}"
+
+                is_new1 = getattr(v1, "_is_new_string", False)
+                is_new2 = getattr(v2, "_is_new_string", False)
+
+                if is_new1 or is_new2:
+                    ok = False
+                else:
+                    ok = (v1 is v2) or (v1.type is v2.type and v1.value == v2.value)
+            else:
+                i1 = to_int(v1)
+                i2 = to_int(v2)
+
+                if c == "gt":
+                    ok = i1 > i2
+                elif c == "ge":
+                    ok = i1 >= i2
+                elif c == "lt":
+                    ok = i1 < i2
+                elif c == "le":
+                    ok = i1 <= i2
+                elif c == "eq":
+                    ok = i1 == i2
+                elif c == "ne":
+                    ok = i1 != i2
+                else:
+                    raise NotImplementedError(f"Unhandled if condition: {c}")
+            if ok:
+                frame.pc = PC(frame.pc.method, t)
+            else:
+                frame.pc += 1
             return state
         case jvm.Goto(target=t):
             frame.pc = PC(frame.pc.method, t)
@@ -202,40 +234,83 @@ def step(state: State) -> State | str:
             return state
         case jvm.InvokeVirtual(method=m):
             ms = str(m) 
-            if ms.startswith("java/lang/String"):
+            if ms.startswith("java/lang/String."):
                 class_and_name, _, desc = ms.partition(":")
                 _cls, _, name = class_and_name.rpartition(".")
                 match name:
                     case "length": # desc == "()I"
                         recv = frame.stack.pop()
-                        assert recv.type == jvm.Ref("java/lang/String"), f"expected String receiver, got {recv}"
+                        if recv.value is None:
+                            return "null pointer"
+                        assert isinstance(
+                            recv.value, str
+                        ), f"expected String receiver, got {recv}"
                         frame.stack.push(jvm.Value.int(len(recv.value)))
                         frame.pc += 1
                         return state
                     case "concat":
                         arg = frame.stack.pop()
                         recv = frame.stack.pop()
-                        assert recv.type == jvm.Ref("java/lang/String"), f"expected String receiver, got {recv}"
-                        assert arg.type == jvm.Ref("java/lang/String"), f"expected String argument, got {arg}"
-                        frame.stack.push(make_string_value(str(recv.value) + str(arg.value)))
+                        assert isinstance(
+                            recv.value, str
+                        ), f"expected String receiver, got {recv}"
+                        assert isinstance(
+                            arg.value, str
+                        ), f"expected String argument, got {arg}"
+                        frame.stack.push(make_string_value(recv.value + arg.value))
                         frame.pc += 1
                         return state
                     case "equals":
                         other = frame.stack.pop()
                         recv = frame.stack.pop()
-                        eq = False
-                        if recv.type == jvm.Ref("java/lang/String") and other.type == jvm.Ref("java/lang/String"):
-                            eq = (recv.value == other.value)
-                        frame.stack.push(jvm.Value.int(1 if eq else 0))
+                        is_equal = (
+                            isinstance(recv.value, str)
+                            and isinstance(other.value, str)
+                            and recv.value == other.value
+                        )
+                        frame.stack.push(jvm.Value(jvm.Boolean(), is_equal))
                         frame.pc += 1
                         return state
                     case "equalsIgnoreCase":
                         other = frame.stack.pop()
                         recv = frame.stack.pop()
-                        eq = False
-                        if recv.type == jvm.Ref("java/lang/String") and other.type == jvm.Ref("java/lang/String"):
-                            eq = (str(recv.value).lower() == str(other.value).lower())
-                        frame.stack.push(jvm.Value.int(1 if eq else 0))
+                        is_equal = (
+                            isinstance(recv.value, str)
+                            and isinstance(other.value, str)
+                            and recv.value.lower() == other.value.lower()
+                        )
+                        frame.stack.push(jvm.Value(jvm.Boolean(), is_equal))
+                        frame.pc += 1
+                        return state
+                    case "charAt":
+                        index = frame.stack.pop()
+                        recv = frame.stack.pop()
+                        assert index.type is jvm.Int(), f"expected int index, got {index}"
+                        if recv.value is None or not isinstance(recv.value, str):
+                            return "out of bounds"
+                        s = recv.value
+                        i = index.value
+                        if i < 0 or i >= len(s):
+                            return "out of bounds"
+                        ch = s[i]
+                        frame.stack.push(jvm.Value(jvm.Char(), ch))
+                        frame.pc += 1
+                        return state
+                    case "substring":
+                        end = frame.stack.pop()
+                        start = frame.stack.pop()
+                        recv = frame.stack.pop()
+                        assert (
+                            start.type is jvm.Int() and end.type is jvm.Int()
+                        ), f"expected int indices, got {start}, {end}"
+                        if recv.value is None or not isinstance(recv.value, str):
+                            return "out of bounds"
+                        s = recv.value
+                        i, j = start.value, end.value
+                        if i < 0 or j < i or j > len(s):
+                            return "out of bounds"
+                        result = s[i:j]
+                        frame.stack.push(make_string_value(result))
                         frame.pc += 1
                         return state
                     case name:
