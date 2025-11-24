@@ -108,6 +108,12 @@ class Type(ABC):
                     stack.append(Array)
                     i += 1
                     continue
+                case "L":
+                    # object type
+                    semi = input.index(";", i)
+                    classname = ClassName.decode(input[i + 1 : semi])
+                    r = Object(classname)
+                    i = semi
                 case _:
                     raise ValueError(f"Unknown type {input[i]}")
             break
@@ -153,7 +159,7 @@ class Type(ABC):
                     return Array(Type.from_json(json["type"]))
                 case "class":
                     match json["name"]:
-                        case "java/lang/String": 
+                        case "java/lang/String":
                             return Object(ClassName.decode("java/lang/String"))
                         case "java/lang/Object":
                             return Object(ClassName.decode("java/lang/Object"))
@@ -418,7 +424,7 @@ class ParameterType:
 
     def __len__(self):
         return self._elements.__len__()
-    
+
     def __iter__(self):
         return self._elements.__iter__()
 
@@ -554,7 +560,11 @@ class AbsMethodID(Absolute[MethodID]):
     @classmethod
     def from_json(cls, json: dict) -> "Self":
         return cls(
-            classname=ClassName.decode(json["ref"]["name"]) if "ref" in json else ClassName.decode(json["name"]),
+            classname=(
+                ClassName.decode(json["ref"]["name"])
+                if "ref" in json
+                else ClassName.decode(json["name"])
+            ),
             extension=MethodID(
                 name=json["name"],
                 params=ParameterType.from_json(json["args"]),
@@ -616,6 +626,8 @@ class Value:
                         return f"[C:{chars}]"
                     case _:
                         raise NotImplementedError()
+            case Object(ClassName("java/lang/String")):
+                return f'"{self.value}"'
             case _:
                 raise NotImplementedError(f"Cannot encode {self.type}")
 
@@ -773,7 +785,7 @@ class ValueParser:
             inputs.append(parser())
 
         return inputs
-    
+
     def parse_string(self):
         s = self.expect("STRING")
-        return Value(Object(ClassName.decode("java/lang/String")), s.value)
+        return Value(Object(ClassName.decode("java/lang/String")), s.value[1:-1])

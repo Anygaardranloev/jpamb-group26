@@ -57,7 +57,7 @@ jpamb.cases.Simple.justReturnNothing:()V                     () -> ok
 jpamb.cases.Simple.multiError:(Z)I                           (false) -> assertion error
 jpamb.cases.Simple.multiError:(Z)I                           (true) -> divide by zero
 jpamb.cases.Strings.charAtInBounds:()V                       () -> ok
-jpamb.cases.Strings.charAtNull:()V                           () -> out of bounds
+jpamb.cases.Strings.charAtNull:()V                           () -> null pointer
 jpamb.cases.Strings.charAtOutOfBounds:()V                    () -> out of bounds
 jpamb.cases.Strings.concatNested:()V                         () -> ok
 jpamb.cases.Strings.concatReferenceEquality:()V              () -> assertion error
@@ -72,6 +72,8 @@ jpamb.cases.Strings.equalsIgnoreCaseGuardsLengthWrongWay:(I)V (1) -> ok
 jpamb.cases.Strings.equalsIgnoreCaseOk:()V                   () -> ok
 jpamb.cases.Strings.equalsIgnoreCaseSubstringFails:()V       () -> assertion error
 jpamb.cases.Strings.equalsIgnoreCaseSubstringOk:()V          () -> ok
+jpamb.cases.Strings.hardPassphrase:(Ljava/lang/String;)V     ("P4ssw0rd") -> ok
+jpamb.cases.Strings.hardPassphrase:(Ljava/lang/String;)V     ("password") -> assertion error
 jpamb.cases.Strings.lenOfNonNull:()V                         () -> ok
 jpamb.cases.Strings.lenOfNull:()V                            () -> null pointer
 jpamb.cases.Strings.stringEqualsLiteralFails:()V             () -> assertion error

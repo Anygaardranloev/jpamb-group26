@@ -535,7 +535,7 @@
           "values": {
             "value": {
               "type": "string",
-              "value": "() -> out of bounds"
+              "value": "() -> null pointer"
             }
           }
         },
@@ -7990,6 +7990,432 @@
       "exceptions": [],
       "name": "substringConcatEqualsIgnoreCaseFails",
       "params": [],
+      "returns": {
+        "annotations": [],
+        "type": null
+      },
+      "typeparams": []
+    },
+    {
+      "access": [
+        "public",
+        "static"
+      ],
+      "annotations": [
+        {
+          "is_runtime_visible": true,
+          "type": "jpamb/utils/Cases",
+          "values": {
+            "value": {
+              "type": "array",
+              "value": [
+                {
+                  "type": "annotation",
+                  "value": {
+                    "type": "jpamb/utils/Case",
+                    "values": {
+                      "value": {
+                        "type": "string",
+                        "value": "(\"P4ssw0rd\") -> ok"
+                      }
+                    }
+                  }
+                },
+                {
+                  "type": "annotation",
+                  "value": {
+                    "type": "jpamb/utils/Case",
+                    "values": {
+                      "value": {
+                        "type": "string",
+                        "value": "(\"password\") -> assertion error"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        },
+        {
+          "is_runtime_visible": true,
+          "type": "jpamb/utils/Tag",
+          "values": {
+            "value": {
+              "type": "array",
+              "value": [
+                {
+                  "type": "enum",
+                  "value": {
+                    "name": "STRING",
+                    "type": {
+                      "kind": "class",
+                      "name": "jpamb/utils/Tag$TagType"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "code": {
+        "annotations": [],
+        "bytecode": [
+          {
+            "offset": 0,
+            "opr": "push",
+            "value": {
+              "type": "string",
+              "value": "P4ssw0rd"
+            }
+          },
+          {
+            "index": 1,
+            "offset": 2,
+            "opr": "store",
+            "type": "ref"
+          },
+          {
+            "field": {
+              "class": "jpamb/cases/Strings",
+              "name": "$assertionsDisabled",
+              "type": "boolean"
+            },
+            "offset": 3,
+            "opr": "get",
+            "static": true
+          },
+          {
+            "condition": "ne",
+            "offset": 6,
+            "opr": "ifz",
+            "target": 13
+          },
+          {
+            "index": 0,
+            "offset": 9,
+            "opr": "load",
+            "type": "ref"
+          },
+          {
+            "access": "virtual",
+            "method": {
+              "args": [],
+              "name": "length",
+              "ref": {
+                "kind": "class",
+                "name": "java/lang/String"
+              },
+              "returns": "int"
+            },
+            "offset": 10,
+            "opr": "invoke"
+          },
+          {
+            "index": 1,
+            "offset": 13,
+            "opr": "load",
+            "type": "ref"
+          },
+          {
+            "access": "virtual",
+            "method": {
+              "args": [],
+              "name": "length",
+              "ref": {
+                "kind": "class",
+                "name": "java/lang/String"
+              },
+              "returns": "int"
+            },
+            "offset": 14,
+            "opr": "invoke"
+          },
+          {
+            "condition": "eq",
+            "offset": 17,
+            "opr": "if",
+            "target": 13
+          },
+          {
+            "class": "java/lang/AssertionError",
+            "offset": 20,
+            "opr": "new"
+          },
+          {
+            "offset": 23,
+            "opr": "dup",
+            "words": 1
+          },
+          {
+            "access": "special",
+            "method": {
+              "args": [],
+              "is_interface": false,
+              "name": "<init>",
+              "ref": {
+                "kind": "class",
+                "name": "java/lang/AssertionError"
+              },
+              "returns": null
+            },
+            "offset": 24,
+            "opr": "invoke"
+          },
+          {
+            "offset": 27,
+            "opr": "throw"
+          },
+          {
+            "offset": 28,
+            "opr": "push",
+            "value": {
+              "type": "integer",
+              "value": 0
+            }
+          },
+          {
+            "index": 2,
+            "offset": 29,
+            "opr": "store",
+            "type": "int"
+          },
+          {
+            "index": 2,
+            "offset": 30,
+            "opr": "load",
+            "type": "int"
+          },
+          {
+            "index": 1,
+            "offset": 31,
+            "opr": "load",
+            "type": "ref"
+          },
+          {
+            "access": "virtual",
+            "method": {
+              "args": [],
+              "name": "length",
+              "ref": {
+                "kind": "class",
+                "name": "java/lang/String"
+              },
+              "returns": "int"
+            },
+            "offset": 32,
+            "opr": "invoke"
+          },
+          {
+            "condition": "ge",
+            "offset": 35,
+            "opr": "if",
+            "target": 34
+          },
+          {
+            "field": {
+              "class": "jpamb/cases/Strings",
+              "name": "$assertionsDisabled",
+              "type": "boolean"
+            },
+            "offset": 38,
+            "opr": "get",
+            "static": true
+          },
+          {
+            "condition": "ne",
+            "offset": 41,
+            "opr": "ifz",
+            "target": 32
+          },
+          {
+            "index": 0,
+            "offset": 44,
+            "opr": "load",
+            "type": "ref"
+          },
+          {
+            "index": 2,
+            "offset": 45,
+            "opr": "load",
+            "type": "int"
+          },
+          {
+            "access": "virtual",
+            "method": {
+              "args": [
+                "int"
+              ],
+              "name": "charAt",
+              "ref": {
+                "kind": "class",
+                "name": "java/lang/String"
+              },
+              "returns": "char"
+            },
+            "offset": 46,
+            "opr": "invoke"
+          },
+          {
+            "index": 1,
+            "offset": 49,
+            "opr": "load",
+            "type": "ref"
+          },
+          {
+            "index": 2,
+            "offset": 50,
+            "opr": "load",
+            "type": "int"
+          },
+          {
+            "access": "virtual",
+            "method": {
+              "args": [
+                "int"
+              ],
+              "name": "charAt",
+              "ref": {
+                "kind": "class",
+                "name": "java/lang/String"
+              },
+              "returns": "char"
+            },
+            "offset": 51,
+            "opr": "invoke"
+          },
+          {
+            "condition": "eq",
+            "offset": 54,
+            "opr": "if",
+            "target": 32
+          },
+          {
+            "class": "java/lang/AssertionError",
+            "offset": 57,
+            "opr": "new"
+          },
+          {
+            "offset": 60,
+            "opr": "dup",
+            "words": 1
+          },
+          {
+            "access": "special",
+            "method": {
+              "args": [],
+              "is_interface": false,
+              "name": "<init>",
+              "ref": {
+                "kind": "class",
+                "name": "java/lang/AssertionError"
+              },
+              "returns": null
+            },
+            "offset": 61,
+            "opr": "invoke"
+          },
+          {
+            "offset": 64,
+            "opr": "throw"
+          },
+          {
+            "amount": 1,
+            "index": 2,
+            "offset": 65,
+            "opr": "incr"
+          },
+          {
+            "offset": 68,
+            "opr": "goto",
+            "target": 15
+          },
+          {
+            "offset": 71,
+            "opr": "return",
+            "type": null
+          }
+        ],
+        "exceptions": [],
+        "lines": [
+          {
+            "line": 317,
+            "offset": 0
+          },
+          {
+            "line": 318,
+            "offset": 2
+          },
+          {
+            "line": 319,
+            "offset": 13
+          },
+          {
+            "line": 320,
+            "offset": 19
+          },
+          {
+            "line": 319,
+            "offset": 32
+          },
+          {
+            "line": 322,
+            "offset": 34
+          }
+        ],
+        "max_locals": 3,
+        "max_stack": 3,
+        "stack_map": [
+          {
+            "index": 13,
+            "info": [
+              {
+                "ref": {
+                  "kind": "class",
+                  "name": "java/lang/String"
+                },
+                "type": "object"
+              }
+            ],
+            "type": "append_frame"
+          },
+          {
+            "index": 15,
+            "info": [
+              {
+                "type": "integer"
+              }
+            ],
+            "type": "append_frame"
+          },
+          {
+            "index": 32,
+            "type": "same"
+          },
+          {
+            "index": 34,
+            "info": 1,
+            "type": "chop_frame"
+          }
+        ]
+      },
+      "default": null,
+      "exceptions": [],
+      "name": "hardPassphrase",
+      "params": [
+        {
+          "annotations": [],
+          "type": {
+            "annotations": [],
+            "args": [],
+            "inner": null,
+            "kind": "class",
+            "name": "java/lang/String"
+          },
+          "visible": true
+        }
+      ],
       "returns": {
         "annotations": [],
         "type": null

@@ -31,7 +31,7 @@ public class Strings {
         s.length();
     }
 
-    @Case("() -> out of bounds")
+    @Case("() -> null pointer")
     @Tag({ STRING })
     public static void charAtNull() {
         String s = null;
@@ -73,8 +73,8 @@ public class Strings {
     public static void stringSpellsHeyOk() {
         String s = "hey";
         assert s.charAt(0) == 'h'
-            && s.charAt(1) == 'e'
-            && s.charAt(2) == 'y';
+                && s.charAt(1) == 'e'
+                && s.charAt(2) == 'y';
     }
 
     @Case("() -> out of bounds")
@@ -82,8 +82,8 @@ public class Strings {
     public static void stringSpellsHeyFails() {
         String s = "hello";
         assert s.charAt(0) == 'h'
-            && s.charAt(1) == 'e'
-            && s.charAt(2) == 'y';
+                && s.charAt(1) == 'e'
+                && s.charAt(2) == 'y';
     }
 
     @Case("() -> assertion error")
@@ -91,22 +91,22 @@ public class Strings {
     public static void stringSpellsHeyEmpty() {
         String s = "";
         assert s.charAt(0) == 'h'
-            && s.charAt(1) == 'e'
-            && s.charAt(2) == 'y';
+                && s.charAt(1) == 'e'
+                && s.charAt(2) == 'y';
     }
 
     // equality
     @Case("() -> ok")
     @Tag({ STRING })
     public static void stringEqualsLiteralOk() {
-        String s = new String ("hey");
+        String s = new String("hey");
         assert s.equals("hey");
     }
 
     @Case("() -> assertion error")
     @Tag({ STRING })
     public static void stringEqualsLiteralFails() {
-        String s = new String ("hello");
+        String s = new String("hello");
         assert s.equals("hey");
     }
 
@@ -120,7 +120,7 @@ public class Strings {
     @Case("() -> assertion error")
     @Tag({ STRING })
     public static void stringReferenceEqualityFails() {
-        String s = new String ("hey");
+        String s = new String("hey");
         assert s == "hey";
     }
 
@@ -188,7 +188,7 @@ public class Strings {
         assert c == 'l';
     }
 
-    @Case("() -> out of bounds")
+    @Case("() -> assertion error")
     @Tag({ STRING })
     public static void substringCharAtAssertFails() {
         String s = "hello";
@@ -308,5 +308,16 @@ public class Strings {
         String core = s.substring(0, 5);
         String result = core.concat("X");
         assert result.equalsIgnoreCase("hello");
+    }
+
+    @Case("(\"P4ssw0rd\") -> ok")
+    @Case("(\"password\") -> assertion error")
+    @Tag({ STRING })
+    public static void hardPassphrase(String input) {
+        String passphrase = "P4ssw0rd";
+        assert input.length() == passphrase.length();
+        for (int i = 0; i < passphrase.length(); i++) {
+            assert input.charAt(i) == passphrase.charAt(i);
+        }
     }
 }
