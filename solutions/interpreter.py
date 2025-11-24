@@ -1,11 +1,12 @@
-from typing import Tuple, TYPE_CHECKING
+import argparse
+import sys
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Tuple
+
+from loguru import logger
+
 import jpamb
 from jpamb import jvm
-from dataclasses import dataclass, field
-
-import sys
-import argparse
-from loguru import logger
 
 logger.remove()
 logger.add(sys.stderr, format="[{level}] {message}")

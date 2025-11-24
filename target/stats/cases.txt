@@ -56,6 +56,8 @@ jpamb.cases.Simple.justReturn:()I                            () -> ok
 jpamb.cases.Simple.justReturnNothing:()V                     () -> ok
 jpamb.cases.Simple.multiError:(Z)I                           (false) -> assertion error
 jpamb.cases.Simple.multiError:(Z)I                           (true) -> divide by zero
+jpamb.cases.Strings.assertOnlyCorrectPassword:(Ljava/lang/String;)V ("P4ssw0rd") -> assertion error
+jpamb.cases.Strings.assertOnlyCorrectPassword:(Ljava/lang/String;)V ("password") -> ok
 jpamb.cases.Strings.charAtInBounds:()V                       () -> ok
 jpamb.cases.Strings.charAtNull:()V                           () -> null pointer
 jpamb.cases.Strings.charAtOutOfBounds:()V                    () -> out of bounds
@@ -72,8 +74,6 @@ jpamb.cases.Strings.equalsIgnoreCaseGuardsLengthWrongWay:(I)V (1) -> ok
 jpamb.cases.Strings.equalsIgnoreCaseOk:()V                   () -> ok
 jpamb.cases.Strings.equalsIgnoreCaseSubstringFails:()V       () -> assertion error
 jpamb.cases.Strings.equalsIgnoreCaseSubstringOk:()V          () -> ok
-jpamb.cases.Strings.hardPassphrase:(Ljava/lang/String;)V     ("P4ssw0rd") -> ok
-jpamb.cases.Strings.hardPassphrase:(Ljava/lang/String;)V     ("password") -> assertion error
 jpamb.cases.Strings.lenOfNonNull:()V                         () -> ok
 jpamb.cases.Strings.lenOfNull:()V                            () -> null pointer
 jpamb.cases.Strings.stringEqualsLiteralFails:()V             () -> assertion error
@@ -89,7 +89,7 @@ jpamb.cases.Strings.stringReferenceEqualityOk:()V            () -> ok
 jpamb.cases.Strings.stringSpellsHeyEmpty:()V                 () -> assertion error
 jpamb.cases.Strings.stringSpellsHeyFails:()V                 () -> out of bounds
 jpamb.cases.Strings.stringSpellsHeyOk:()V                    () -> ok
-jpamb.cases.Strings.substringCharAtAssertFails:()V           () -> out of bounds
+jpamb.cases.Strings.substringCharAtAssertFails:()V           () -> assertion error
 jpamb.cases.Strings.substringCharAtInBounds:()V              () -> ok
 jpamb.cases.Strings.substringConcatEqualsIgnoreCaseFails:()V () -> assertion error
 jpamb.cases.Strings.substringConcatEqualsIgnoreCaseOk:()V    () -> ok
