@@ -32,6 +32,45 @@ public class Fuzzer {
         }
     }
 
+    @Case("(\"P4ssw0rd\") -> assertion error")
+    @Case("(\"P4ssTEST\") -> assertion error")
+    @Case("(\"password\") -> ok")
+    @Tag({ FUZZER })
+    public static void assertMultiplePossibleCrashInputsNestedBranches(String password) {
+        String correct1 = "P4ssw0rd";
+        String correct2 = "P4ssTEST";
+
+        if (password.length() == correct1.length()) {
+            if (correct1.charAt(0) == password.charAt(0)) {
+                if (correct1.charAt(1) == password.charAt(1)) {
+                    if (correct1.charAt(2) == password.charAt(2)) {
+                        if (correct1.charAt(3) == password.charAt(3)) {
+                            if (correct1.charAt(4) == password.charAt(4)) {
+                                if (correct1.charAt(5) == password.charAt(5)) {
+                                    if (correct1.charAt(6) == password.charAt(6)) {
+                                        if (correct1.charAt(7) == password.charAt(7)) {
+                                            assert false;
+                                        }
+                                    }
+                                }
+                            }
+
+                            if (correct2.charAt(4) == password.charAt(4)) {
+                                if (correct2.charAt(5) == password.charAt(5)) {
+                                    if (correct2.charAt(6) == password.charAt(6)) {
+                                        if (correct2.charAt(7) == password.charAt(7)) {
+                                            assert false;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     @Case("(\"C0d3W0rD\") -> assertion error")
     @Case("(\"11111111\") -> ok")
     @Tag({ FUZZER })

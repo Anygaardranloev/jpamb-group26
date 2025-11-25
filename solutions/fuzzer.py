@@ -2,7 +2,7 @@
 import argparse
 import sys
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, NamedTuple, Tuple
+from typing import TYPE_CHECKING, NamedTuple, Tuple, List
 
 from interpreter import PC, Interpreter
 from loguru import logger
@@ -13,6 +13,7 @@ from collections import deque
 import math
 import random
 import time
+import signal
 
 from jpamb.jvm.base import ClassName
 
@@ -59,6 +60,7 @@ class Testcase:
 
 class Fuzzer:
     COVERAGE_SIZE = 1 << 10  # 1KB coverage bitmap
+    STAGNANT_ITER_LIMIT = 150_000
 
     def __init__(
         self,
@@ -82,6 +84,17 @@ class Fuzzer:
         self.corpus: deque[Testcase] = deque()
         self.random = random.Random(seed)
         self.max_corpus_size = max_corpus_size
+        self.crashes: List[Testcase] = []
+        # keep a set of crash signatures so we only store unique crashes
+        self._crash_signatures: set[tuple] = set()
+        self._stop_requested = False
+
+        # install Ctrl-C handler to gracefully stop fuzzing
+        signal.signal(signal.SIGINT, self._handle_sigint)
+
+    def _handle_sigint(self, signum, frame):  # type: ignore[override]
+        logger.warning("Ctrl-C received, stopping fuzzing after current iteration...")
+        self._stop_requested = True
 
     def generate_testcase(self) -> Testcase:
         input_values = []
@@ -94,7 +107,7 @@ class Fuzzer:
                     val = chr(self.random.randint(32, 126))  # printable ASCII
                     input_values.append(jvm.Value(param, val))
                 case jvm.Object(ClassName("java/lang/String")):
-                    length = self.random.randint(0, 20)
+                    length = self.random.randint(0, 30)
                     s = "".join(
                         chr(self.random.randint(32, 126)) for _ in range(length)
                     )  # printable ASCII
@@ -143,31 +156,37 @@ class Fuzzer:
         )
         self.corpus = deque(sorted_corpus[: self.max_corpus_size])
 
+    def mutate_int(self, val: int) -> jvm.Value:
+        mutation = self.random.choice([-10, -1, 1, 10, 42, -42])
+        new_val = val + mutation
+        return jvm.Value(jvm.Int(), new_val)
+
+    def mutate_char(self, val: str) -> jvm.Value:
+        mutation = self.random.choice([-1, 1, 5, -5])
+        new_val = chr(max(32, min(126, ord(val) + mutation)))  # keep printable
+        return jvm.Value(jvm.Char(), new_val)
+
+    def mutate_string(self, s: str) -> jvm.Value:
+        if len(s) == 0 or self.random.random() < 0.5:
+            # insert a character
+            pos = self.random.randint(0, len(s))
+            ch = chr(self.random.randint(32, 126))
+            new_s = s[:pos] + ch + s[pos:]
+        else:
+            # modify a character
+            pos = self.random.randint(0, len(s) - 1)
+            ch = chr(self.random.randint(32, 126))
+            new_s = s[:pos] + ch + s[pos + 1 :]
+        return jvm.Value(jvm.Object(ClassName("java/lang/String")), new_s)
+
     def mutate_value(self, val: jvm.Value) -> jvm.Value:
         match val.type:
             case jvm.Int():
-                mutation = self.random.choice([-10, -1, 1, 10, 42, -42])
-                new_val = val.value + mutation
-                return jvm.Value(val.type, new_val)
+                return self.mutate_int(val.value)
             case jvm.Char():
-                mutation = self.random.choice([-1, 1, 5, -5])
-                new_val = chr(
-                    max(32, min(126, ord(val.value) + mutation))
-                )  # keep printable
-                return jvm.Value(val.type, new_val)
+                return self.mutate_char(val.value)
             case jvm.Object(ClassName("java/lang/String")):
-                s = val.value
-                if len(s) == 0 or self.random.random() < 0.5:
-                    # insert a character
-                    pos = self.random.randint(0, len(s))
-                    ch = chr(self.random.randint(32, 126))
-                    new_s = s[:pos] + ch + s[pos:]
-                else:
-                    # modify a character
-                    pos = self.random.randint(0, len(s) - 1)
-                    ch = chr(self.random.randint(32, 126))
-                    new_s = s[:pos] + ch + s[pos + 1 :]
-                return jvm.Value(val.type, new_s)
+                return self.mutate_string(val.value)
             case _:
                 raise NotImplementedError(
                     f"Mutation for type {val.type} not implemented"
@@ -189,7 +208,7 @@ class Fuzzer:
             depth=testcase.depth + 1,
         )
 
-    def run(self, max_iters: int = 1000) -> Tuple[str, int]:
+    def run(self, max_iters: int = 1000) -> int:
         assert self.interpreter.coverage is not None
         # initial empty input
 
@@ -198,7 +217,13 @@ class Fuzzer:
         self.corpus.append(first)
 
         best_score = 0
+        # counter for consecutive iterations without new coverage
+        stagnant_iters = 0
         for iteration in range(max_iters):
+            if self._stop_requested:
+                logger.info("Stop requested, terminating fuzzing loop.")
+                break
+
             if not self.corpus:
                 # self.corpus.append(self.generate_testcase())
                 logger.warning("Corpus is empty, fuzzing stopped.")
@@ -228,16 +253,35 @@ class Fuzzer:
                 testcase.coverage_score = local_coverage.score()
                 self.corpus.append(testcase)
                 logger.info(
-                    f"[{iteration}] new interesting testcase (score={testcase.coverage_score}): "
-                    f"{testcase.input_values}, corpus size={len(self.corpus)}, depth={testcase.depth}"
+                    f"[{iteration:9}] new interesting testcase (score={testcase.coverage_score}): "
+                    f"{testcase.input_values}, depth={testcase.depth}, corpus size={len(self.corpus)}, crashes={len(self.crashes)}"
                 )
                 self.maybe_prune_corpus()
+                stagnant_iters = 0
+            else:
+                stagnant_iters += 1
 
             if result != "ok":
-                logger.info(f"  Found interesting result: {result}")
-                return result, best_score
+                # build a hashable signature of the crash based on result and inputs
+                sig = (
+                    result,
+                    tuple((str(v.type), v.value) for v in testcase.input_values),
+                )
+                if sig not in self._crash_signatures:
+                    self._crash_signatures.add(sig)
+                    self.crashes.append(testcase)
+                    logger.warning(
+                        f"Found interesting result: {result}, for inputs {testcase.input_values}"
+                    )
 
-        return "ok", best_score
+            # stop if no new coverage has been produced for a long time
+            if stagnant_iters >= Fuzzer.STAGNANT_ITER_LIMIT:
+                logger.info(
+                    f"Stopping fuzzing due to {Fuzzer.STAGNANT_ITER_LIMIT} iterations without new coverage."
+                )
+                break
+
+        return self.global_coverage.score()
 
     @staticmethod
     def is_interesting_run(local: Coverage, global_map: Coverage) -> bool:
@@ -294,6 +338,12 @@ def main():
         default=time.time_ns(),
         help="Random seed for reproducibility",
     )
+    ap.add_argument(
+        "--max-corpus-size",
+        type=int,
+        default=128,
+        help="Maximum size of the corpus",
+    )
     args = ap.parse_args()
 
     try:
@@ -303,11 +353,22 @@ def main():
         return
 
     fuzzer = Fuzzer(
-        methodid, max_steps=args.max_steps, max_iters=args.max_iters, seed=args.seed
+        methodid,
+        max_steps=args.max_steps,
+        max_iters=args.max_iters,
+        seed=args.seed,
+        max_corpus_size=args.max_corpus_size,
     )
-    result, coverage = fuzzer.run(max_iters=args.max_iters)
+    coverage = fuzzer.run(max_iters=args.max_iters)
 
-    print(f"Fuzzing finished with result: {result}, coverage score: {coverage}")
+    print(f"Fuzzing finished with coverage score: {coverage}")
+
+    if fuzzer.crashes:
+        print("\n=== Crashes collected during this session ===")
+        for idx, tc in enumerate(fuzzer.crashes, start=1):
+            print(
+                f"Crash #{idx} inputs: {tc.input_values}, depth={tc.depth}, score={tc.coverage_score}"
+            )
 
 
 if __name__ == "__main__":
