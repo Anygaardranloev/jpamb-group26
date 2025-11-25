@@ -256,11 +256,11 @@ class Interpreter:
                         ok = i1 <= i2
                     elif c == "eq":
                         if self.coverage is not None:
-                            self.coverage.log_int_cmp(frame.pc, i1, i2)
+                            self.coverage.log_int32_cmp(frame.pc, i1, i2)
                         ok = i1 == i2
                     elif c == "ne":
                         if self.coverage is not None:
-                            self.coverage.log_int_cmp(frame.pc, i1, i2)
+                            self.coverage.log_int32_cmp(frame.pc, i1, i2)
                         ok = i1 != i2
                     else:
                         ok = False
@@ -387,6 +387,10 @@ class Interpreter:
                                 is_equal = False
                             else:
                                 is_equal = s_recv == s_other
+
+                            if self.coverage is not None:
+                                self.coverage.log_str_cmp(frame.pc, s_recv, s_other)
+
                             frame.stack.push(jvm.Value(jvm.Boolean(), is_equal))
                             frame.pc += 1
                             return state
@@ -399,6 +403,11 @@ class Interpreter:
                                 is_equal = False
                             else:
                                 is_equal = s_recv.lower() == s_other.lower()
+
+                            if self.coverage is not None:
+                                self.coverage.log_str_cmp(
+                                    frame.pc, s_recv, s_other, case_sensitive=False
+                                )
                             frame.stack.push(jvm.Value(jvm.Boolean(), is_equal))
                             frame.pc += 1
                             return state

@@ -43,8 +43,7 @@ class Coverage:
         loc = self._loc_id(pc)
         self.hit_loc(loc)
 
-    def log_int_cmp(self, pc: "PC", val1: int, val2: int):
-        # print(f"Logging int cmp at {pc}: {val1} vs {val2}")
+    def log_int32_cmp(self, pc: "PC", val1: int, val2: int):
         loc = self._loc_id(pc)
 
         sign = (val1 < 0 == val2 < 0) or (val1 >= 0 and val2 >= 0)
@@ -62,6 +61,24 @@ class Coverage:
                     byte2 = (val1 & (0xFF << 8)) == (val2 & (0xFF << 8))
                     if byte2:
                         self.hit_loc(loc + 3)
+
+    def log_str_cmp(self, pc: "PC", val1: str, val2: str, case_sensitive: bool = True):
+        if not case_sensitive:
+            val1 = val1.lower()
+            val2 = val2.lower()
+
+        loc = self._loc_id(pc)
+
+        min_len = min(len(val1), len(val2))
+        if min_len == 0:
+            return
+
+        # Check character by character
+        for i in range(min_len):
+            if val1[i] == val2[i]:
+                self.hit_loc(loc + 1 + i)
+            else:
+                break
 
     def reset(self):
         self.last_loc = 0
