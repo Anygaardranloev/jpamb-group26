@@ -83,7 +83,6 @@ class Type(ABC):
 
     @staticmethod
     def decode(input) -> tuple["Type", str]:
-        print("TYPE.DECODE CALLED WITH:", repr(input))
         r, stack = None, []
         i = 0
         r = None

@@ -56,7 +56,24 @@ jpamb.cases.Simple.justReturn:()I                            () -> ok
 jpamb.cases.Simple.justReturnNothing:()V                     () -> ok
 jpamb.cases.Simple.multiError:(Z)I                           (false) -> assertion error
 jpamb.cases.Simple.multiError:(Z)I                           (true) -> divide by zero
-jpamb.cases.Strings.assertEqual:(Ljava/lang/String;)V        (hey) -> assertion error
-jpamb.cases.Strings.assertEqual:(Ljava/lang/String;)V        (hey) -> ok
+jpamb.cases.Strings.assertLiteralEqual:(Ljava/lang/String;)V (hello) -> ok
+jpamb.cases.Strings.assertLiteralEqual:(Ljava/lang/String;)V (hey) -> assertion error
+jpamb.cases.Strings.charAtBounds:(Ljava/lang/String;)V       (hello) -> ok
+jpamb.cases.Strings.charAtBounds:(Ljava/lang/String;)V       (hey) -> out of bounds
+jpamb.cases.Strings.stringEmpty:(Ljava/lang/String;)V        () -> assertion error
+jpamb.cases.Strings.stringEmpty:(Ljava/lang/String;)V        (hello) -> ok
+jpamb.cases.Strings.stringIsNull:(Ljava/lang/String;)V       () -> null pointer
+jpamb.cases.Strings.stringIsNull:(Ljava/lang/String;)V       (hello) -> ok
+jpamb.cases.Strings.stringLengthAssertion:(Ljava/lang/String;)V (hello) -> ok
+jpamb.cases.Strings.stringLengthAssertion:(Ljava/lang/String;)V (hey) -> assertion error
+jpamb.cases.Strings.stringReferenceEqualityFail:(Ljava/lang/String;)V (hello) -> assertion error
+jpamb.cases.Strings.stringReferenceEqualityOk:(Ljava/lang/String;)V (hello) -> ok
+jpamb.cases.Strings.stringSpellsHello:(Ljava/lang/String;)V  (hello) -> ok
+jpamb.cases.Strings.stringSpellsHello:(Ljava/lang/String;)V  (hey) -> assertion error
+jpamb.cases.Strings.stringSpellsHey:(Ljava/lang/String;)V    () -> assertion error
+jpamb.cases.Strings.stringSpellsHey:(Ljava/lang/String;)V    (hello) -> assertion error
+jpamb.cases.Strings.stringSpellsHey:(Ljava/lang/String;)V    (hi) -> out of bounds
+jpamb.cases.Strings.substringBounds:(Ljava/lang/String;)V    (hello) -> ok
+jpamb.cases.Strings.substringBounds:(Ljava/lang/String;)V    (hey) -> out of bounds
 jpamb.cases.Tricky.collatz:(I)V                              (0) -> assertion error
 jpamb.cases.Tricky.collatz:(I)V                              (24) -> ok
