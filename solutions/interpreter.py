@@ -255,8 +255,12 @@ class Interpreter:
                     elif c == "le":
                         ok = i1 <= i2
                     elif c == "eq":
+                        if self.coverage is not None:
+                            self.coverage.log_int_cmp(frame.pc, i1, i2)
                         ok = i1 == i2
                     elif c == "ne":
+                        if self.coverage is not None:
+                            self.coverage.log_int_cmp(frame.pc, i1, i2)
                         ok = i1 != i2
                     else:
                         ok = False

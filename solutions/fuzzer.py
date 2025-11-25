@@ -28,23 +28,44 @@ logger.disable("interpreter")
 class Coverage:
     bitmap: bytearray  # 8-bit counters (same size for global+per-run)
     last_loc: int = 0
-    str_cmps: list = field(default_factory=list)
 
     def _loc_id(self, pc: "PC") -> int:
         # deterministic hash of (method, offset), truncated to bitmap size
         h = hash((str(pc.method), pc.offset))  # @TODO: Maybe fastter?
         return h & (len(self.bitmap) - 1)
 
-    def hit_pc(self, pc: "PC"):
-        loc = self._loc_id(pc)
+    def hit_loc(self, loc: int):
         if self.bitmap[loc] < 0xFF:
             self.bitmap[loc] += 1
         self.last_loc = loc
 
+    def hit_pc(self, pc: "PC"):
+        loc = self._loc_id(pc)
+        self.hit_loc(loc)
+
+    def log_int_cmp(self, pc: "PC", val1: int, val2: int):
+        # print(f"Logging int cmp at {pc}: {val1} vs {val2}")
+        loc = self._loc_id(pc)
+
+        sign = (val1 < 0 == val2 < 0) or (val1 >= 0 and val2 >= 0)
+        if sign:
+            self.hit_loc(loc + 4)
+
+            byte0 = (val1 & (0xFF << 24)) == (val2 & (0xFF << 24))
+            if byte0:
+                self.hit_loc(loc + 1)
+
+                byte1 = (val1 & (0xFF << 16)) == (val2 & (0xFF << 16))
+                if byte1:
+                    self.hit_loc(loc + 2)
+
+                    byte2 = (val1 & (0xFF << 8)) == (val2 & (0xFF << 8))
+                    if byte2:
+                        self.hit_loc(loc + 3)
+
     def reset(self):
         self.last_loc = 0
         self.bitmap[:] = b"\x00" * len(self.bitmap)
-        self.str_cmps.clear()
 
     def score(self) -> int:
         # number of covered edges
@@ -190,8 +211,16 @@ class Fuzzer:
         self.corpus = deque(sorted_corpus[: self.max_corpus_size])
 
     def mutate_int(self, val: int) -> jvm.Value:
-        mutation = self.random.choice([-10, -1, 1, 10, 42, -42])
-        new_val = val + mutation
+        if random.random() < 0.2:
+            mutation = self.random.choice([-10, -1, 1, 10, 42, -42])
+            new_val = val + mutation
+        elif random.random() < 0.8:
+            random_byte = self.random.randint(0, 255)
+            random_shift = self.random.choice([0, 8, 16, 24])
+            new_val = (val & ~(0xFF << random_shift)) | (random_byte << random_shift)
+        else:  # change sign
+            new_val = -val
+
         return jvm.Value(jvm.Int(), new_val)
 
     def mutate_char(self, val: str) -> jvm.Value:
