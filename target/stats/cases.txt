@@ -25,6 +25,12 @@ jpamb.cases.Calls.callsAssertIf:(Z)V                         (false) -> assertio
 jpamb.cases.Calls.callsAssertIf:(Z)V                         (true) -> ok
 jpamb.cases.Calls.callsAssertIfWithTrue:()V                  () -> ok
 jpamb.cases.Calls.callsAssertTrue:()V                        () -> ok
+jpamb.cases.Fuzzer.assertOnlyCorrectPasswordLoop:(Ljava/lang/String;)V ("11111111") -> ok
+jpamb.cases.Fuzzer.assertOnlyCorrectPasswordLoop:(Ljava/lang/String;)V ("C0d3W0rD") -> assertion error
+jpamb.cases.Fuzzer.assertOnlyCorrectPasswordNestedBranches:(Ljava/lang/String;)V ("P4ssw0rd") -> assertion error
+jpamb.cases.Fuzzer.assertOnlyCorrectPasswordNestedBranches:(Ljava/lang/String;)V ("password") -> ok
+jpamb.cases.Fuzzer.assertOnlyCorrectU32IntegerMagic:(I)V     (11111111) -> ok
+jpamb.cases.Fuzzer.assertOnlyCorrectU32IntegerMagic:(I)V     (322428591) -> assertion error
 jpamb.cases.Loops.forever:()V                                () -> *
 jpamb.cases.Loops.neverAsserts:()V                           () -> *
 jpamb.cases.Loops.neverDivides:()I                           () -> *

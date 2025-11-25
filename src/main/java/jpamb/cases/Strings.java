@@ -315,43 +315,6 @@ public class Strings {
     @Tag({ STRING })
     public static void assertOnlyCorrectPassword(String password) {
         String correct = "P4ssw0rd";
-
-        if (password.length() != correct.length()) {
-            return;
-        }
-
-        if (correct.charAt(0) != password.charAt(0)) {
-            return;
-        }
-
-        if (correct.charAt(1) != password.charAt(1)) {
-            return;
-        }
-
-        if (correct.charAt(2) != password.charAt(2)) {
-            return;
-        }
-
-        if (correct.charAt(3) != password.charAt(3)) {
-            return;
-        }
-
-        if (correct.charAt(4) != password.charAt(4)) {
-            return;
-        }
-
-        if (correct.charAt(5) != password.charAt(5)) {
-            return;
-        }
-
-        if (correct.charAt(6) != password.charAt(6)) {
-            return;
-        }
-
-        if (correct.charAt(7) != password.charAt(7)) {
-            return;
-        }
-
-        assert false;
+        assert password.equals(correct);
     }
 }

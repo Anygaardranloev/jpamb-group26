@@ -195,6 +195,29 @@
     },
     {
       "access": [
+        "public",
+        "static",
+        "final",
+        "enum"
+      ],
+      "annotations": [],
+      "name": "FUZZER",
+      "type": {
+        "annotations": [],
+        "args": [],
+        "inner": {
+          "annotations": [],
+          "args": [],
+          "inner": null,
+          "name": "TagType"
+        },
+        "kind": "class",
+        "name": "jpamb/utils/Tag"
+      },
+      "value": null
+    },
+    {
+      "access": [
         "private",
         "static",
         "final",
@@ -564,7 +587,7 @@
             "opr": "push",
             "value": {
               "type": "integer",
-              "value": 8
+              "value": 9
             }
           },
           {
@@ -826,6 +849,37 @@
           },
           {
             "offset": 55,
+            "opr": "dup",
+            "words": 1
+          },
+          {
+            "offset": 56,
+            "opr": "push",
+            "value": {
+              "type": "integer",
+              "value": 8
+            }
+          },
+          {
+            "field": {
+              "class": "jpamb/utils/Tag$TagType",
+              "name": "FUZZER",
+              "type": {
+                "kind": "class",
+                "name": "jpamb/utils/Tag$TagType"
+              }
+            },
+            "offset": 58,
+            "opr": "get",
+            "static": true
+          },
+          {
+            "offset": 61,
+            "opr": "array_store",
+            "type": "ref"
+          },
+          {
+            "offset": 62,
             "opr": "return",
             "type": "ref"
           }
@@ -1354,6 +1408,66 @@
             "static": true
           },
           {
+            "class": "jpamb/utils/Tag$TagType",
+            "offset": 106,
+            "opr": "new"
+          },
+          {
+            "offset": 109,
+            "opr": "dup",
+            "words": 1
+          },
+          {
+            "offset": 110,
+            "opr": "push",
+            "value": {
+              "type": "string",
+              "value": "FUZZER"
+            }
+          },
+          {
+            "offset": 112,
+            "opr": "push",
+            "value": {
+              "type": "integer",
+              "value": 8
+            }
+          },
+          {
+            "access": "special",
+            "method": {
+              "args": [
+                {
+                  "kind": "class",
+                  "name": "java/lang/String"
+                },
+                "int"
+              ],
+              "is_interface": false,
+              "name": "<init>",
+              "ref": {
+                "kind": "class",
+                "name": "jpamb/utils/Tag$TagType"
+              },
+              "returns": null
+            },
+            "offset": 114,
+            "opr": "invoke"
+          },
+          {
+            "field": {
+              "class": "jpamb/utils/Tag$TagType",
+              "name": "FUZZER",
+              "type": {
+                "kind": "class",
+                "name": "jpamb/utils/Tag$TagType"
+              }
+            },
+            "offset": 117,
+            "opr": "put",
+            "static": true
+          },
+          {
             "access": "static",
             "method": {
               "args": [],
@@ -1371,7 +1485,7 @@
                 }
               }
             },
-            "offset": 106,
+            "offset": 120,
             "opr": "invoke"
           },
           {
@@ -1386,12 +1500,12 @@
                 }
               }
             },
-            "offset": 109,
+            "offset": 123,
             "opr": "put",
             "static": true
           },
           {
-            "offset": 112,
+            "offset": 126,
             "opr": "return",
             "type": null
           }
@@ -1431,8 +1545,12 @@
             "offset": 42
           },
           {
-            "line": 11,
+            "line": 20,
             "offset": 48
+          },
+          {
+            "line": 11,
+            "offset": 54
           }
         ],
         "max_locals": 0,
