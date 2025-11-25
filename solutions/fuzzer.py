@@ -56,11 +56,14 @@ class Testcase:
     input_values: list[jvm.Value] = field(default_factory=list)
     coverage_score: int = 0
     depth: int = 0
+    stagnant_execs: int = 0
 
 
 class Fuzzer:
     COVERAGE_SIZE = 1 << 10  # 1KB coverage bitmap
-    STAGNANT_ITER_LIMIT = 150_000
+    STAGNANT_ITER_LIMIT = 350_000
+    STAGNANT_CHANGE_STRATEGY = 100_000
+    USELESS_TESTCASE_ITER_LIMIT = 120_000
 
     def __init__(
         self,
@@ -88,11 +91,12 @@ class Fuzzer:
         # keep a set of crash signatures so we only store unique crashes
         self._crash_signatures: set[tuple] = set()
         self._stop_requested = False
+        self.stagnant_iters = 0
 
         # install Ctrl-C handler to gracefully stop fuzzing
         signal.signal(signal.SIGINT, self._handle_sigint)
 
-    def _handle_sigint(self, signum, frame):  # type: ignore[override]
+    def _handle_sigint(self, _signum, _frame):  # type: ignore[override]
         logger.warning("Ctrl-C received, stopping fuzzing after current iteration...")
         self._stop_requested = True
 
@@ -119,34 +123,63 @@ class Fuzzer:
 
         return Testcase(input_values, 0)
 
-    # def pick_parent(self) -> Testcase:
-    #     """Pick a parent testcase from the corpus, weighted by coverage score."""
-    #     if not self.corpus:
-    #         return self.generate_testcase()
+    def pick_parent_uniform(self) -> Testcase:
+        """Pick a parent testcase from the corpus uniformly among the worse 80%.
 
-    #     weights = [1 + int(math.log2(tc.coverage_score + 1)) for tc in self.corpus]
-    #     return self.random.choices(self.corpus, weights=weights, k=1)[0]
+        We define the worse 80% as those testcases with coverage score below the
+        20th percentile. This strategy encourages exploration of less-covered paths, if we could not find new coverage recently using exploitative strategies.
+        """
+        if not self.corpus:
+            return self.generate_testcase()
 
-    def pick_parent(self) -> Testcase:
+        score_threshold = sorted(tc.coverage_score for tc in self.corpus)[
+            max(1, len(self.corpus) // 5) - 1
+        ]  # top 20%
+        filtered_candidates = [
+            tc for tc in self.corpus if tc.coverage_score < score_threshold
+        ]
+
+        if not filtered_candidates:
+            filtered_candidates = self.corpus
+
+        return self.random.choice(filtered_candidates)
+
+    def pick_parent_exploit(self) -> Testcase:
         """Pick a parent testcase from the corpus using an explore/exploit strategy."""
         if not self.corpus:
             return self.generate_testcase()
 
-        max_score = max(tc.coverage_score for tc in self.corpus)
-
-        best_candidates = [tc for tc in self.corpus if tc.coverage_score == max_score]
+        score_threshold = sorted(tc.coverage_score for tc in self.corpus)[
+            max(1, len(self.corpus) // 5) - 1
+        ]  # top 20%
+        best_candidates = [
+            tc for tc in self.corpus if tc.coverage_score >= score_threshold
+        ]
         best_parent = self.random.choice(best_candidates)
 
         if len(self.corpus) == 1 or self.random.random() < 0.7:
             return best_parent
 
-        others = [tc for tc in self.corpus if tc.coverage_score < max_score]
+        others = [tc for tc in self.corpus if tc.coverage_score < score_threshold]
         if not others:
             return best_parent
 
         return self.random.choice(others)
 
+    def schedule_testcase(self) -> Testcase:
+        if self.stagnant_iters <= Fuzzer.STAGNANT_CHANGE_STRATEGY:
+            testcase = self.pick_parent_exploit()
+        else:
+            testcase = self.pick_parent_uniform()
+
+        return testcase
+
     def maybe_prune_corpus(self):
+        # 1. Remove useless testcases (nothing interesting was derived from them for a long time)
+        for tc in list(self.corpus):
+            if tc.stagnant_execs > Fuzzer.USELESS_TESTCASE_ITER_LIMIT:
+                self.corpus.remove(tc)
+
         if len(self.corpus) <= self.max_corpus_size:
             return
 
@@ -218,22 +251,13 @@ class Fuzzer:
 
         best_score = 0
         # counter for consecutive iterations without new coverage
-        stagnant_iters = 0
         for iteration in range(max_iters):
             if self._stop_requested:
                 logger.info("Stop requested, terminating fuzzing loop.")
                 break
 
-            if not self.corpus:
-                # self.corpus.append(self.generate_testcase())
-                logger.warning("Corpus is empty, fuzzing stopped.")
-                break
-
-            parent = self.pick_parent()
+            parent = self.schedule_testcase()
             testcase = self.mutate_testcase(parent)
-            # logger.info(
-            #     f"[{iteration:09}]: Running testcase with score {testcase.coverage_score} and inputs {testcase.input_values}, depth {testcase.depth}, corpus size {len(self.corpus)}"
-            # )
 
             # Reset coverage for this run
             self.interpreter.coverage.reset()
@@ -256,10 +280,13 @@ class Fuzzer:
                     f"[{iteration:9}] new interesting testcase (score={testcase.coverage_score}): "
                     f"{testcase.input_values}, depth={testcase.depth}, corpus size={len(self.corpus)}, crashes={len(self.crashes)}"
                 )
-                self.maybe_prune_corpus()
-                stagnant_iters = 0
+                self.stagnant_iters = 0
+                parent.stagnant_execs = 0
             else:
-                stagnant_iters += 1
+                parent.stagnant_execs += 1
+                self.stagnant_iters += 1
+
+            self.maybe_prune_corpus()
 
             if result != "ok":
                 # build a hashable signature of the crash based on result and inputs
@@ -275,7 +302,7 @@ class Fuzzer:
                     )
 
             # stop if no new coverage has been produced for a long time
-            if stagnant_iters >= Fuzzer.STAGNANT_ITER_LIMIT:
+            if self.stagnant_iters >= Fuzzer.STAGNANT_ITER_LIMIT:
                 logger.info(
                     f"Stopping fuzzing due to {Fuzzer.STAGNANT_ITER_LIMIT} iterations without new coverage."
                 )
@@ -329,7 +356,7 @@ def main():
     ap.add_argument(
         "--max-iters",
         type=int,
-        default=100000000,
+        default=100_000_000,
         help="Maximum number of fuzzing iterations",
     )
     ap.add_argument(
