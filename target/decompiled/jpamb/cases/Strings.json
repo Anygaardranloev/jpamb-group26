@@ -1670,7 +1670,7 @@
           "values": {
             "value": {
               "type": "string",
-              "value": "() -> out of bounds"
+              "value": "() -> assertion error"
             }
           }
         },
@@ -1967,7 +1967,7 @@
           "values": {
             "value": {
               "type": "string",
-              "value": "() -> assertion error"
+              "value": "() -> out of bounds"
             }
           }
         },
@@ -4619,7 +4619,7 @@
           "values": {
             "value": {
               "type": "string",
-              "value": "() -> assertion error"
+              "value": "() -> ok"
             }
           }
         },
@@ -8124,7 +8124,7 @@
             "opr": "invoke"
           },
           {
-            "condition": "ne",
+            "condition": "eq",
             "offset": 14,
             "opr": "ifz",
             "target": 12

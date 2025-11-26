@@ -88,6 +88,17 @@ public class Runtime {
           params.add(char.class);
           break;
         }
+        case 'L' -> {
+          int semicolonIndex = s.indexOf(';', i);
+          String className = s.substring(i + 1, semicolonIndex).replace('/', '.');
+          try {
+            params.add(Class.forName(className));
+          } catch (ClassNotFoundException e) {
+            throw new RuntimeException("Unknown class: " + className);
+          }
+          i = semicolonIndex;
+          break;
+        }
         case '[' -> {
           i += 1;
           switch (s.charAt(i)) {

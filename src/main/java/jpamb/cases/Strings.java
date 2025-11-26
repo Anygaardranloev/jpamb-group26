@@ -77,7 +77,7 @@ public class Strings {
                 && s.charAt(2) == 'y';
     }
 
-    @Case("() -> out of bounds")
+    @Case("() -> assertion error")
     @Tag({ STRING })
     public static void stringSpellsHeyFails() {
         String s = "hello";
@@ -86,7 +86,7 @@ public class Strings {
                 && s.charAt(2) == 'y';
     }
 
-    @Case("() -> assertion error")
+    @Case("() -> out of bounds")
     @Tag({ STRING })
     public static void stringSpellsHeyEmpty() {
         String s = "";
@@ -196,7 +196,7 @@ public class Strings {
         assert t.charAt(0) == 'x';
     }
 
-    @Case("() -> assertion error")
+    @Case("() -> ok")
     @Tag({ STRING })
     public static void substringReferenceEquality() {
         String s = "hey";
@@ -315,6 +315,6 @@ public class Strings {
     @Tag({ STRING })
     public static void assertOnlyCorrectPassword(String password) {
         String correct = "P4ssw0rd";
-        assert password.equals(correct);
+        assert !password.equals(correct);
     }
 }

@@ -97,8 +97,8 @@ jpamb.cases.Strings.stringLengthAssertionFails:()V           () -> assertion err
 jpamb.cases.Strings.stringLengthAssertionOk:()V              () -> ok
 jpamb.cases.Strings.stringReferenceEqualityFails:()V         () -> assertion error
 jpamb.cases.Strings.stringReferenceEqualityOk:()V            () -> ok
-jpamb.cases.Strings.stringSpellsHeyEmpty:()V                 () -> assertion error
-jpamb.cases.Strings.stringSpellsHeyFails:()V                 () -> out of bounds
+jpamb.cases.Strings.stringSpellsHeyEmpty:()V                 () -> out of bounds
+jpamb.cases.Strings.stringSpellsHeyFails:()V                 () -> assertion error
 jpamb.cases.Strings.stringSpellsHeyOk:()V                    () -> ok
 jpamb.cases.Strings.substringCharAtAssertFails:()V           () -> assertion error
 jpamb.cases.Strings.substringCharAtInBounds:()V              () -> ok
@@ -107,6 +107,6 @@ jpamb.cases.Strings.substringConcatEqualsIgnoreCaseOk:()V    () -> ok
 jpamb.cases.Strings.substringInBounds:()V                    () -> ok
 jpamb.cases.Strings.substringIndexArithmeticOutOfBounds:()V  () -> out of bounds
 jpamb.cases.Strings.substringOutOfBounds:()V                 () -> out of bounds
-jpamb.cases.Strings.substringReferenceEquality:()V           () -> assertion error
+jpamb.cases.Strings.substringReferenceEquality:()V           () -> ok
 jpamb.cases.Tricky.collatz:(I)V                              (0) -> assertion error
 jpamb.cases.Tricky.collatz:(I)V                              (24) -> ok
