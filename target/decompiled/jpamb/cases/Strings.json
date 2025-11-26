@@ -535,7 +535,7 @@
           "values": {
             "value": {
               "type": "string",
-              "value": "() -> out of bounds"
+              "value": "() -> null pointer"
             }
           }
         },
@@ -4367,7 +4367,7 @@
           "values": {
             "value": {
               "type": "string",
-              "value": "() -> out of bounds"
+              "value": "() -> assertion error"
             }
           }
         },
@@ -7990,6 +7990,229 @@
       "exceptions": [],
       "name": "substringConcatEqualsIgnoreCaseFails",
       "params": [],
+      "returns": {
+        "annotations": [],
+        "type": null
+      },
+      "typeparams": []
+    },
+    {
+      "access": [
+        "public",
+        "static"
+      ],
+      "annotations": [
+        {
+          "is_runtime_visible": true,
+          "type": "jpamb/utils/Cases",
+          "values": {
+            "value": {
+              "type": "array",
+              "value": [
+                {
+                  "type": "annotation",
+                  "value": {
+                    "type": "jpamb/utils/Case",
+                    "values": {
+                      "value": {
+                        "type": "string",
+                        "value": "(\"P4ssw0rd\") -> assertion error"
+                      }
+                    }
+                  }
+                },
+                {
+                  "type": "annotation",
+                  "value": {
+                    "type": "jpamb/utils/Case",
+                    "values": {
+                      "value": {
+                        "type": "string",
+                        "value": "(\"password\") -> ok"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        },
+        {
+          "is_runtime_visible": true,
+          "type": "jpamb/utils/Tag",
+          "values": {
+            "value": {
+              "type": "array",
+              "value": [
+                {
+                  "type": "enum",
+                  "value": {
+                    "name": "STRING",
+                    "type": {
+                      "kind": "class",
+                      "name": "jpamb/utils/Tag$TagType"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "code": {
+        "annotations": [],
+        "bytecode": [
+          {
+            "offset": 0,
+            "opr": "push",
+            "value": {
+              "type": "string",
+              "value": "P4ssw0rd"
+            }
+          },
+          {
+            "index": 1,
+            "offset": 2,
+            "opr": "store",
+            "type": "ref"
+          },
+          {
+            "field": {
+              "class": "jpamb/cases/Strings",
+              "name": "$assertionsDisabled",
+              "type": "boolean"
+            },
+            "offset": 3,
+            "opr": "get",
+            "static": true
+          },
+          {
+            "condition": "ne",
+            "offset": 6,
+            "opr": "ifz",
+            "target": 12
+          },
+          {
+            "index": 0,
+            "offset": 9,
+            "opr": "load",
+            "type": "ref"
+          },
+          {
+            "index": 1,
+            "offset": 10,
+            "opr": "load",
+            "type": "ref"
+          },
+          {
+            "access": "virtual",
+            "method": {
+              "args": [
+                {
+                  "kind": "class",
+                  "name": "java/lang/Object"
+                }
+              ],
+              "name": "equals",
+              "ref": {
+                "kind": "class",
+                "name": "java/lang/String"
+              },
+              "returns": "boolean"
+            },
+            "offset": 11,
+            "opr": "invoke"
+          },
+          {
+            "condition": "ne",
+            "offset": 14,
+            "opr": "ifz",
+            "target": 12
+          },
+          {
+            "class": "java/lang/AssertionError",
+            "offset": 17,
+            "opr": "new"
+          },
+          {
+            "offset": 20,
+            "opr": "dup",
+            "words": 1
+          },
+          {
+            "access": "special",
+            "method": {
+              "args": [],
+              "is_interface": false,
+              "name": "<init>",
+              "ref": {
+                "kind": "class",
+                "name": "java/lang/AssertionError"
+              },
+              "returns": null
+            },
+            "offset": 21,
+            "opr": "invoke"
+          },
+          {
+            "offset": 24,
+            "opr": "throw"
+          },
+          {
+            "offset": 25,
+            "opr": "return",
+            "type": null
+          }
+        ],
+        "exceptions": [],
+        "lines": [
+          {
+            "line": 317,
+            "offset": 0
+          },
+          {
+            "line": 318,
+            "offset": 2
+          },
+          {
+            "line": 319,
+            "offset": 12
+          }
+        ],
+        "max_locals": 2,
+        "max_stack": 2,
+        "stack_map": [
+          {
+            "index": 12,
+            "info": [
+              {
+                "ref": {
+                  "kind": "class",
+                  "name": "java/lang/String"
+                },
+                "type": "object"
+              }
+            ],
+            "type": "append_frame"
+          }
+        ]
+      },
+      "default": null,
+      "exceptions": [],
+      "name": "assertOnlyCorrectPassword",
+      "params": [
+        {
+          "annotations": [],
+          "type": {
+            "annotations": [],
+            "args": [],
+            "inner": null,
+            "kind": "class",
+            "name": "java/lang/String"
+          },
+          "visible": true
+        }
+      ],
       "returns": {
         "annotations": [],
         "type": null

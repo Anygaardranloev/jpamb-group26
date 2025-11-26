@@ -22,7 +22,8 @@ public class Runtime {
       Tricky.class,
       jpamb.cases.Arrays.class,
       Calls.class,
-      Strings.class);
+      Strings.class,
+      Fuzzer.class);
 
   public static Case[] cases(Method m) {
     var cases = m.getAnnotation(Cases.class);
@@ -53,6 +54,8 @@ public class Runtime {
       b.append("[I");
     } else if (c.equals(char[].class)) {
       b.append("[C");
+    } else if (c.equals(String.class)) {
+      b.append("Ljava/lang/String;");
     } else {
       throw new RuntimeException("Unknown type:" + c.toString());
     }

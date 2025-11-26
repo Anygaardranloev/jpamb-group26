@@ -1,14 +1,19 @@
-from typing import Tuple
+import argparse
+import sys
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Tuple
+
+from loguru import logger
+
 import jpamb
 from jpamb import jvm
-from dataclasses import dataclass, field
-
-import sys
-import argparse
-from loguru import logger
 
 logger.remove()
 logger.add(sys.stderr, format="[{level}] {message}")
+
+
+if TYPE_CHECKING:
+    from fuzzer import Coverage
 
 
 def to_int(v: jvm.Value) -> int:
@@ -83,7 +88,6 @@ class Frame:
     locals: dict[int, jvm.Value]
     stack: Stack[jvm.Value]
     pc: PC
-    string_charat_success: bool = False
 
     def __str__(self):
         locals = ", ".join(f"{k}:{v}" for k, v in sorted(self.locals.items()))
@@ -106,9 +110,10 @@ class State:
 
 
 class Interpreter:
-    def __init__(self, suite: jpamb.Suite):
+    def __init__(self, suite: jpamb.Suite, coverage: "Coverage | None" = None):
         self.suite = suite
         self.bc = Bytecode(suite, dict())
+        self.coverage = coverage
 
     def _bin_int(self, frame, state, op):
         v2, v1 = frame.stack.pop(), frame.stack.pop()
@@ -138,14 +143,36 @@ class Interpreter:
     def get_string(self, state: State, v: jvm.Value) -> str | None:
         if v.value is None:
             return None
-        assert isinstance(v.value, int), f"expected string ref id, got {v}"
-        return state.heap[v.value]
+
+        if isinstance(v.value, int):
+            return state.heap[v.value]
+
+        if isinstance(v.value, str):
+            return v.value
+
+        assert False, f"expected string ref id or literal, got {v}"
+
+    def get_array(self, state: State, v: jvm.Value) -> list[jvm.Value] | None:
+        if v.value is None:
+            return None
+
+        if isinstance(v.value, int):
+            return state.heap[v.value]
+
+        if isinstance(v.value, list):
+            return v.value
+
+        assert False, f"expected array ref id, got {v}"
 
     def step(self, state: State) -> State | str:
         assert isinstance(state, State), f"expected frame but got {state}"
         frame = state.frames.peek()
         opr = self.bc[frame.pc]
         logger.debug(f"STEP {opr}\n{state}")
+
+        if self.coverage is not None:
+            self.coverage.hit_pc(frame.pc)
+
         match opr:
             case jvm.Push(value=v):
                 if v.type == jvm.Reference() and isinstance(v.value, str | type(None)):
@@ -155,6 +182,14 @@ class Interpreter:
                         frame.stack.push(self.alloc_string_literal(state, v.value))
                 else:
                     frame.stack.push(v)
+                frame.pc += 1
+                return state
+            case jvm.Incr(index=i, amount=c):
+                old_val = frame.locals.get(i, jvm.Value.int(0))
+                assert (
+                    old_val.type == jvm.Int()
+                ), f"expected int local var, got {old_val}"
+                frame.locals[i] = jvm.Value.int(old_val.value + c)
                 frame.pc += 1
                 return state
             case jvm.Pop():
@@ -168,6 +203,41 @@ class Interpreter:
             case jvm.Store(type=_t, index=i):
                 v = frame.stack.pop()
                 frame.locals[i] = v
+                frame.pc += 1
+                return state
+            case jvm.ArrayLoad(type=target_type):
+                index = frame.stack.pop()
+                array_ref = frame.stack.pop()
+                assert index.type == jvm.Int(), f"expected int index, got {index}"
+                arr = self.get_array(state, array_ref)
+                if arr is None:
+                    return "null pointer"
+                i = index.value
+                if i < 0 or i >= len(arr):
+                    return "out of bounds"
+                frame.stack.push(jvm.Value(target_type, arr[i]))
+                frame.pc += 1
+                return state
+            case jvm.ArrayLength():
+                array_ref = frame.stack.pop()
+                arr = self.get_array(state, array_ref)
+                if arr is None:
+                    return "null pointer"
+                frame.stack.push(jvm.Value.int(len(arr)))
+                frame.pc += 1
+                return state
+            case jvm.ArrayStore(type=_t):
+                value = frame.stack.pop()
+                index = frame.stack.pop()
+                array_ref = frame.stack.pop()
+                assert index.type == jvm.Int(), f"expected int index, got {index}"
+                arr = self.get_array(state, array_ref)
+                if arr is None:
+                    return "null pointer"
+                i = index.value
+                if i < 0 or i >= len(arr):
+                    return "out of bounds"
+                arr[i] = value.value
                 frame.pc += 1
                 return state
             case jvm.Binary(type=jvm.Int(), operant=jvm.BinaryOpr.Div):
@@ -232,8 +302,12 @@ class Interpreter:
                     elif c == "le":
                         ok = i1 <= i2
                     elif c == "eq":
+                        if self.coverage is not None:
+                            self.coverage.log_int32_cmp(frame.pc, i1, i2)
                         ok = i1 == i2
                     elif c == "ne":
+                        if self.coverage is not None:
+                            self.coverage.log_int32_cmp(frame.pc, i1, i2)
                         ok = i1 != i2
                     else:
                         ok = False
@@ -256,7 +330,7 @@ class Interpreter:
                 return state
             case jvm.New(classname=_cls):
                 if str(_cls) == "java/lang/String":
-                    v = alloc_string_object(state, "")
+                    v = self.alloc_string_object(state, "")
                     frame.stack.push(v)
                 else:
                     frame.stack.push(jvm.Value.int(0))
@@ -284,6 +358,31 @@ class Interpreter:
                             this.value, int
                         ), f"expected string ref id for this, got {this}"
                         state.heap[this.value] = ""
+
+                    elif desc.startswith("([C)"):
+                        arg = frame.stack.pop()
+                        this = frame.stack.pop()
+                        assert (
+                            arg.type == jvm.Reference()
+                        ), f"expected char array ref, got {arg}"
+                        assert isinstance(
+                            arg.value, int
+                        ), f"expected char array ref id, got {arg}"
+                        char_array_ref = arg.value
+                        char_array = state.heap.get(char_array_ref)
+                        if char_array is None:
+                            s_arg = ""
+                        else:
+                            s_arg = "".join(char_array)
+                        assert isinstance(
+                            this.value, int
+                        ), f"expected string ref id for this, got {this}"
+                        state.heap[this.value] = s_arg
+                    else:
+                        raise NotImplementedError(
+                            f"Don't know how to handle: {ms} with desc {desc}"
+                        )
+
                     frame.pc += 1
                     return state
                 frame.pc += 1
@@ -335,6 +434,10 @@ class Interpreter:
                                 is_equal = False
                             else:
                                 is_equal = s_recv == s_other
+
+                            if self.coverage is not None:
+                                self.coverage.log_str_cmp(frame.pc, s_recv, s_other)
+
                             frame.stack.push(jvm.Value(jvm.Boolean(), is_equal))
                             frame.pc += 1
                             return state
@@ -347,6 +450,11 @@ class Interpreter:
                                 is_equal = False
                             else:
                                 is_equal = s_recv.lower() == s_other.lower()
+
+                            if self.coverage is not None:
+                                self.coverage.log_str_cmp(
+                                    frame.pc, s_recv, s_other, case_sensitive=False
+                                )
                             frame.stack.push(jvm.Value(jvm.Boolean(), is_equal))
                             frame.pc += 1
                             return state
@@ -368,7 +476,6 @@ class Interpreter:
                             if i < 0 or i >= len(s):
                                 return "out of bounds"
                             ch = s[i]
-                            frame.string_charat_success = True
                             frame.stack.push(jvm.Value(jvm.Char(), ch))
                             frame.pc += 1
                             return state
@@ -403,8 +510,10 @@ class Interpreter:
                 frame.pc += 1
                 return state
             case jvm.Throw():
-                if frame.string_charat_success:
-                    return "out of bounds"
+                exc = frame.stack.pop()
+                if exc.value is None:
+                    return "null pointer"
+
                 return "assertion error"
             case jvm.Return(type=None):
                 state.frames.pop()
@@ -477,7 +586,7 @@ def main():
         return
 
     suite = jpamb.Suite()
-    interpreter = Interpreter(suite)
+    interpreter = Interpreter(suite, None)
     result = interpreter.run_method(methodid, method_args.values, args.max_steps)
 
     print(result)
