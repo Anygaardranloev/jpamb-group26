@@ -97,6 +97,21 @@ public class Arrays {
         && array[4] == 'o';
   }
 
+  @Case("([C: 'h','e','l','l','o']) -> assertion error")
+  @Case("([C: 'h']) -> ok")
+  @Tag({ ARRAY })
+  public static void arraySpellsHelloWithChecks(char[] array) {
+    if (array.length < 5) {
+      return;
+    }
+
+    assert !(array[0] == 'h'
+        && array[1] == 'e'
+        && array[2] == 'l'
+        && array[3] == 'l'
+        && array[4] == 'o');
+  }
+
   @Case("([I: 50, 100, 200]) -> ok")
   @Case("([I: ]) -> assertion error")
   @Tag({ ARRAY })

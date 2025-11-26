@@ -17,5 +17,6 @@ public @interface Tag {
     RECURSION,
     STDLIB,
     STRING,
+    FUZZER
   }
 }

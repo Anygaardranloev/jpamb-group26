@@ -41,6 +41,8 @@ class Opcode(ABC):
                 opr = NewArray
             case "dup":
                 opr = Dup
+            case "pop":
+                opr = Pop
             case "array_store":
                 opr = ArrayStore
             case "array_load":
@@ -146,9 +148,14 @@ class Push(Opcode):
                         return "iconst_5"
                 return f"ldc [{self.value.value}]"
             case jvm.Reference():
-                assert self.value.value is None, f"what is {self.value}"
-                return "aconst_null"
+                val = self.value.value
 
+                if isinstance(val, str):
+                    return f"ldc [\"{val}\"]"
+                
+                if val is None:
+                    return "aconst_null"
+                raise AssertionError(f"unexpected reference value: {self.value}")
         raise NotImplementedError(f"Unhandled {self!r}")
 
     def semantics(self) -> str | None:
@@ -251,7 +258,29 @@ class Dup(Opcode):
 
     def __str__(self):
         return f"dup {self.words}"
+class Pop(Opcode):
+    """The pop opcode: remove top value from the operand stack"""
 
+    @classmethod
+    def from_json(cls, json: dict) -> "Opcode":
+        return cls(offset=json["offset"])
+
+    def real(self) -> str:
+        return "pop"
+
+    def semantics(self) -> str | None:
+        semantics = """
+        bc[i].opr = 'pop'
+        -------------------------[pop]
+        bc |- (i, s + [v]) -> (i+1, s)
+        """
+        return None
+
+    def mnemonic(self) -> str:
+        return "pop"
+
+    def __str__(self):
+        return "pop"
 
 @dataclass(frozen=True, order=True)
 class ArrayStore(Opcode):
@@ -402,7 +431,7 @@ class InvokeVirtual(Opcode):
         )
 
     def real(self) -> str:
-        return f"invokevirtual {self.method.dashed()}"
+        return f"invokevirtual {self.method.classname.slashed()}/{self.method.extension.name}"
 
     def semantics(self) -> str | None:
         semantics = """

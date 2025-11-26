@@ -22,7 +22,8 @@ public class Runtime {
       Tricky.class,
       jpamb.cases.Arrays.class,
       Calls.class,
-      Strings.class);
+      Strings.class,
+      Fuzzer.class);
 
   public static Case[] cases(Method m) {
     var cases = m.getAnnotation(Cases.class);
@@ -86,12 +87,6 @@ public class Runtime {
         case 'C' -> {
           params.add(char.class);
           break;
-        }
-        case 'L' -> {
-          if (s.startsWith("Ljava/lang/String;", i)) {
-            params.add(String.class);
-            i += "Ljava/lang/String;".length() - 1;
-          }
         }
         case '[' -> {
           i += 1;

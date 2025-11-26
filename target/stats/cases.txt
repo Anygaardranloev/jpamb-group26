@@ -11,6 +11,8 @@ jpamb.cases.Arrays.arraySometimesNull:(I)V                   (11) -> null pointe
 jpamb.cases.Arrays.arraySpellsHello:([C)V                    ([C:'h', 'e', 'l', 'l', 'o']) -> ok
 jpamb.cases.Arrays.arraySpellsHello:([C)V                    ([C:'x']) -> assertion error
 jpamb.cases.Arrays.arraySpellsHello:([C)V                    ([C:]) -> out of bounds
+jpamb.cases.Arrays.arraySpellsHelloWithChecks:([C)V          ([C:'h', 'e', 'l', 'l', 'o']) -> assertion error
+jpamb.cases.Arrays.arraySpellsHelloWithChecks:([C)V          ([C:'h']) -> ok
 jpamb.cases.Arrays.arraySumIsLarge:([I)V                     ([I:50, 100, 200]) -> ok
 jpamb.cases.Arrays.arraySumIsLarge:([I)V                     ([I:]) -> assertion error
 jpamb.cases.Arrays.binarySearch:(I)V                         (3) -> ok
@@ -25,6 +27,15 @@ jpamb.cases.Calls.callsAssertIf:(Z)V                         (false) -> assertio
 jpamb.cases.Calls.callsAssertIf:(Z)V                         (true) -> ok
 jpamb.cases.Calls.callsAssertIfWithTrue:()V                  () -> ok
 jpamb.cases.Calls.callsAssertTrue:()V                        () -> ok
+jpamb.cases.Fuzzer.assertMultiplePossibleCrashInputsNestedBranches:(Ljava/lang/String;)V ("P4ssTEST") -> assertion error
+jpamb.cases.Fuzzer.assertMultiplePossibleCrashInputsNestedBranches:(Ljava/lang/String;)V ("P4ssw0rd") -> assertion error
+jpamb.cases.Fuzzer.assertMultiplePossibleCrashInputsNestedBranches:(Ljava/lang/String;)V ("password") -> ok
+jpamb.cases.Fuzzer.assertOnlyCorrectPasswordLoop:(Ljava/lang/String;)V ("11111111") -> ok
+jpamb.cases.Fuzzer.assertOnlyCorrectPasswordLoop:(Ljava/lang/String;)V ("C0d3W0rD") -> assertion error
+jpamb.cases.Fuzzer.assertOnlyCorrectPasswordNestedBranches:(Ljava/lang/String;)V ("P4ssw0rd") -> assertion error
+jpamb.cases.Fuzzer.assertOnlyCorrectPasswordNestedBranches:(Ljava/lang/String;)V ("password") -> ok
+jpamb.cases.Fuzzer.assertOnlyCorrectU32IntegerMagic:(I)V     (11111111) -> ok
+jpamb.cases.Fuzzer.assertOnlyCorrectU32IntegerMagic:(I)V     (322428591) -> assertion error
 jpamb.cases.Loops.forever:()V                                () -> *
 jpamb.cases.Loops.neverAsserts:()V                           () -> *
 jpamb.cases.Loops.neverDivides:()I                           () -> *
@@ -56,24 +67,46 @@ jpamb.cases.Simple.justReturn:()I                            () -> ok
 jpamb.cases.Simple.justReturnNothing:()V                     () -> ok
 jpamb.cases.Simple.multiError:(Z)I                           (false) -> assertion error
 jpamb.cases.Simple.multiError:(Z)I                           (true) -> divide by zero
-jpamb.cases.Strings.assertLiteralEqual:(Ljava/lang/String;)V (hello) -> ok
-jpamb.cases.Strings.assertLiteralEqual:(Ljava/lang/String;)V (hey) -> assertion error
-jpamb.cases.Strings.charAtBounds:(Ljava/lang/String;)V       (hello) -> ok
-jpamb.cases.Strings.charAtBounds:(Ljava/lang/String;)V       (hey) -> out of bounds
-jpamb.cases.Strings.stringEmpty:(Ljava/lang/String;)V        () -> assertion error
-jpamb.cases.Strings.stringEmpty:(Ljava/lang/String;)V        (hello) -> ok
-jpamb.cases.Strings.stringIsNull:(Ljava/lang/String;)V       () -> null pointer
-jpamb.cases.Strings.stringIsNull:(Ljava/lang/String;)V       (hello) -> ok
-jpamb.cases.Strings.stringLengthAssertion:(Ljava/lang/String;)V (hello) -> ok
-jpamb.cases.Strings.stringLengthAssertion:(Ljava/lang/String;)V (hey) -> assertion error
-jpamb.cases.Strings.stringReferenceEqualityFail:(Ljava/lang/String;)V (hello) -> assertion error
-jpamb.cases.Strings.stringReferenceEqualityOk:(Ljava/lang/String;)V (hello) -> ok
-jpamb.cases.Strings.stringSpellsHello:(Ljava/lang/String;)V  (hello) -> ok
-jpamb.cases.Strings.stringSpellsHello:(Ljava/lang/String;)V  (hey) -> assertion error
-jpamb.cases.Strings.stringSpellsHey:(Ljava/lang/String;)V    () -> assertion error
-jpamb.cases.Strings.stringSpellsHey:(Ljava/lang/String;)V    (hello) -> assertion error
-jpamb.cases.Strings.stringSpellsHey:(Ljava/lang/String;)V    (hi) -> out of bounds
-jpamb.cases.Strings.substringBounds:(Ljava/lang/String;)V    (hello) -> ok
-jpamb.cases.Strings.substringBounds:(Ljava/lang/String;)V    (hey) -> out of bounds
+jpamb.cases.Strings.assertOnlyCorrectPassword:(Ljava/lang/String;)V ("P4ssw0rd") -> assertion error
+jpamb.cases.Strings.assertOnlyCorrectPassword:(Ljava/lang/String;)V ("password") -> ok
+jpamb.cases.Strings.charAtInBounds:()V                       () -> ok
+jpamb.cases.Strings.charAtNull:()V                           () -> null pointer
+jpamb.cases.Strings.charAtOutOfBounds:()V                    () -> out of bounds
+jpamb.cases.Strings.concatNested:()V                         () -> ok
+jpamb.cases.Strings.concatReferenceEquality:()V              () -> assertion error
+jpamb.cases.Strings.concatSimpleOk:()V                       () -> ok
+jpamb.cases.Strings.concatSubstringChainOk:()V               () -> ok
+jpamb.cases.Strings.concatWithNullReceiver:()V               () -> null pointer
+jpamb.cases.Strings.equalsGuardsLengthWrongWay:(I)V          (0) -> null pointer
+jpamb.cases.Strings.equalsGuardsLengthWrongWay:(I)V          (1) -> ok
+jpamb.cases.Strings.equalsIgnoreCaseFails:()V                () -> assertion error
+jpamb.cases.Strings.equalsIgnoreCaseGuardsLengthWrongWay:(I)V (0) -> null pointer
+jpamb.cases.Strings.equalsIgnoreCaseGuardsLengthWrongWay:(I)V (1) -> ok
+jpamb.cases.Strings.equalsIgnoreCaseOk:()V                   () -> ok
+jpamb.cases.Strings.equalsIgnoreCaseSubstringFails:()V       () -> assertion error
+jpamb.cases.Strings.equalsIgnoreCaseSubstringOk:()V          () -> ok
+jpamb.cases.Strings.lenOfNonNull:()V                         () -> ok
+jpamb.cases.Strings.lenOfNull:()V                            () -> null pointer
+jpamb.cases.Strings.stringEqualsLiteralFails:()V             () -> assertion error
+jpamb.cases.Strings.stringEqualsLiteralOk:()V                () -> ok
+jpamb.cases.Strings.stringIsEmptyFails:()V                   () -> assertion error
+jpamb.cases.Strings.stringIsEmptyOk:()V                      () -> ok
+jpamb.cases.Strings.stringLenSometimesNull:(I)V              (0) -> ok
+jpamb.cases.Strings.stringLenSometimesNull:(I)V              (11) -> null pointer
+jpamb.cases.Strings.stringLengthAssertionFails:()V           () -> assertion error
+jpamb.cases.Strings.stringLengthAssertionOk:()V              () -> ok
+jpamb.cases.Strings.stringReferenceEqualityFails:()V         () -> assertion error
+jpamb.cases.Strings.stringReferenceEqualityOk:()V            () -> ok
+jpamb.cases.Strings.stringSpellsHeyEmpty:()V                 () -> assertion error
+jpamb.cases.Strings.stringSpellsHeyFails:()V                 () -> out of bounds
+jpamb.cases.Strings.stringSpellsHeyOk:()V                    () -> ok
+jpamb.cases.Strings.substringCharAtAssertFails:()V           () -> assertion error
+jpamb.cases.Strings.substringCharAtInBounds:()V              () -> ok
+jpamb.cases.Strings.substringConcatEqualsIgnoreCaseFails:()V () -> assertion error
+jpamb.cases.Strings.substringConcatEqualsIgnoreCaseOk:()V    () -> ok
+jpamb.cases.Strings.substringInBounds:()V                    () -> ok
+jpamb.cases.Strings.substringIndexArithmeticOutOfBounds:()V  () -> out of bounds
+jpamb.cases.Strings.substringOutOfBounds:()V                 () -> out of bounds
+jpamb.cases.Strings.substringReferenceEquality:()V           () -> assertion error
 jpamb.cases.Tricky.collatz:(I)V                              (0) -> assertion error
 jpamb.cases.Tricky.collatz:(I)V                              (24) -> ok
