@@ -94,7 +94,6 @@ class Testcase:
     input_values: list[jvm.Value] = field(default_factory=list)
     coverage_score: int = 0
     depth: int = 0
-    stagnant_execs: int = 0
 
 
 class Fuzzer:
@@ -138,26 +137,53 @@ class Fuzzer:
         logger.warning("Ctrl-C received, stopping fuzzing after current iteration...")
         self._stop_requested = True
 
+    def generate_int(self) -> jvm.Value:
+        val = self.random.randint(-100, 100)
+        return jvm.Value(jvm.Int(), val)
+
+    def generate_char(self) -> jvm.Value:
+        val = chr(self.random.randint(32, 126))  # printable ASCII
+        return jvm.Value(jvm.Char(), val)
+
+    def generate_array(
+        self, elem_type: jvm.Type, length: int, return_as_string: bool = False
+    ) -> jvm.Value:
+        array_vals = []
+        for _ in range(length):
+            match elem_type:
+                case jvm.Int():
+                    array_vals.append(self.generate_int().value)
+                case jvm.Char():
+                    array_vals.append(self.generate_char().value)
+                case _:
+                    raise NotImplementedError(
+                        f"Fuzzing for array element type {elem_type} not implemented"
+                    )
+        if return_as_string and isinstance(elem_type, jvm.Char):
+            s = "".join(array_vals)
+            return jvm.Value(jvm.Object(ClassName("java/lang/String")), s)
+        else:
+            return jvm.Value(jvm.Array(elem_type), array_vals)
+
     def generate_testcase(self) -> Testcase:
         input_values = []
         for param in self.target_method_params:
             match param:
                 case jvm.Int():
-                    val = self.random.randint(-100, 100)
-                    input_values.append(jvm.Value(param, val))
+                    val = self.generate_int()
                 case jvm.Char():
-                    val = chr(self.random.randint(32, 126))  # printable ASCII
-                    input_values.append(jvm.Value(param, val))
+                    val = self.generate_char()
                 case jvm.Object(ClassName("java/lang/String")):
                     length = self.random.randint(0, 30)
-                    s = "".join(
-                        chr(self.random.randint(32, 126)) for _ in range(length)
-                    )  # printable ASCII
-                    input_values.append(jvm.Value(param, s))
+                    val = self.generate_array(jvm.Char(), length, return_as_string=True)
+                case jvm.Array(elem_type):
+                    length = self.random.randint(0, 20)
+                    val = self.generate_array(elem_type, length)
                 case _:
                     raise NotImplementedError(
-                        f"Fuzzing for type {param} not implemented"
+                        f"Testcase generation for param type {param} not implemented"
                     )
+            input_values.append(val)
 
         return Testcase(input_values, 0)
 
@@ -212,21 +238,6 @@ class Fuzzer:
 
         return testcase
 
-    def maybe_prune_corpus(self):
-        # 1. Remove useless testcases (nothing interesting was derived from them for a long time)
-        for tc in list(self.corpus):
-            if tc.stagnant_execs > Fuzzer.USELESS_TESTCASE_ITER_LIMIT:
-                self.corpus.remove(tc)
-
-        if len(self.corpus) <= self.max_corpus_size:
-            return
-
-        # Sort by coverage_score descending, keep the best N
-        sorted_corpus = sorted(
-            self.corpus, key=lambda tc: tc.coverage_score, reverse=True
-        )
-        self.corpus = deque(sorted_corpus[: self.max_corpus_size])
-
     def mutate_int(self, val: int) -> jvm.Value:
         if random.random() < 0.2:
             mutation = self.random.choice([-10, -1, 1, 10, 42, -42])
@@ -246,17 +257,50 @@ class Fuzzer:
         return jvm.Value(jvm.Char(), new_val)
 
     def mutate_string(self, s: str) -> jvm.Value:
-        if len(s) == 0 or self.random.random() < 0.5:
+        if len(s) == 0 or self.random.random() < 0.3:
             # insert a character
             pos = self.random.randint(0, len(s))
             ch = chr(self.random.randint(32, 126))
             new_s = s[:pos] + ch + s[pos:]
-        else:
+        elif self.random.random() < 0.9:
             # modify a character
             pos = self.random.randint(0, len(s) - 1)
             ch = chr(self.random.randint(32, 126))
             new_s = s[:pos] + ch + s[pos + 1 :]
+        else:
+            # delete a character
+            pos = self.random.randint(0, len(s) - 1)
+            new_s = s[:pos] + s[pos + 1 :]
         return jvm.Value(jvm.Object(ClassName("java/lang/String")), new_s)
+
+    def mutate_array(self, arr: list, elem_type: jvm.Type) -> jvm.Value:
+        if len(arr) == 0 or self.random.random() < 0.5:
+            # insert an element
+            pos = self.random.randint(0, len(arr))
+            match elem_type:
+                case jvm.Int():
+                    new_elem = self.generate_int().value
+                case jvm.Char():
+                    new_elem = self.generate_char().value
+                case _:
+                    raise NotImplementedError(
+                        f"Mutation for array element type {elem_type} not implemented"
+                    )
+            new_arr = arr[:pos] + [new_elem] + arr[pos:]
+        else:
+            # modify an element
+            pos = self.random.randint(0, len(arr) - 1)
+            match elem_type:
+                case jvm.Int():
+                    new_elem = self.mutate_int(arr[pos]).value
+                case jvm.Char():
+                    new_elem = self.mutate_char(arr[pos]).value
+                case _:
+                    raise NotImplementedError(
+                        f"Mutation for array element type {elem_type} not implemented"
+                    )
+            new_arr = arr[:pos] + [new_elem] + arr[pos + 1 :]
+        return jvm.Value(jvm.Array(elem_type), new_arr)
 
     def mutate_value(self, val: jvm.Value) -> jvm.Value:
         match val.type:
@@ -266,6 +310,8 @@ class Fuzzer:
                 return self.mutate_char(val.value)
             case jvm.Object(ClassName("java/lang/String")):
                 return self.mutate_string(val.value)
+            case jvm.Array(elem_type):
+                return self.mutate_array(val.value, elem_type)
             case _:
                 raise NotImplementedError(
                     f"Mutation for type {val.type} not implemented"
@@ -317,28 +363,26 @@ class Fuzzer:
             interesting = Fuzzer.is_interesting_run(
                 local_coverage, self.global_coverage
             )
+            testcase.coverage_score = local_coverage.score()
 
             if interesting:
                 best_score = max(best_score, local_coverage.score())
-                testcase.coverage_score = local_coverage.score()
                 self.corpus.append(testcase)
                 logger.info(
                     f"[{iteration:9}] new interesting testcase (score={testcase.coverage_score}): "
                     f"{testcase.input_values}, depth={testcase.depth}, corpus size={len(self.corpus)}, crashes={len(self.crashes)}"
                 )
                 self.stagnant_iters = 0
-                parent.stagnant_execs = 0
             else:
-                parent.stagnant_execs += 1
                 self.stagnant_iters += 1
 
-            self.maybe_prune_corpus()
-
             if result != "ok":
-                # build a hashable signature of the crash based on result and inputs
+                # Build a hashable signature of the crash based on result and coverage.
+                # We're not including input values in the signature to avoid generating
+                # too many "unique" crashes that differ only in input but not in behavior.
                 sig = (
                     result,
-                    tuple((str(v.type), v.value) for v in testcase.input_values),
+                    hash(tuple(local_coverage.bitmap)),
                 )
                 if sig not in self._crash_signatures:
                     self._crash_signatures.add(sig)

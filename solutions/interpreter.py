@@ -152,6 +152,18 @@ class Interpreter:
 
         assert False, f"expected string ref id or literal, got {v}"
 
+    def get_array(self, state: State, v: jvm.Value) -> list[jvm.Value] | None:
+        if v.value is None:
+            return None
+
+        if isinstance(v.value, int):
+            return state.heap[v.value]
+
+        if isinstance(v.value, list):
+            return v.value
+
+        assert False, f"expected array ref id, got {v}"
+
     def step(self, state: State) -> State | str:
         assert isinstance(state, State), f"expected frame but got {state}"
         frame = state.frames.peek()
@@ -191,6 +203,41 @@ class Interpreter:
             case jvm.Store(type=_t, index=i):
                 v = frame.stack.pop()
                 frame.locals[i] = v
+                frame.pc += 1
+                return state
+            case jvm.ArrayLoad(type=target_type):
+                index = frame.stack.pop()
+                array_ref = frame.stack.pop()
+                assert index.type == jvm.Int(), f"expected int index, got {index}"
+                arr = self.get_array(state, array_ref)
+                if arr is None:
+                    return "null pointer"
+                i = index.value
+                if i < 0 or i >= len(arr):
+                    return "out of bounds"
+                frame.stack.push(jvm.Value(target_type, arr[i]))
+                frame.pc += 1
+                return state
+            case jvm.ArrayLength():
+                array_ref = frame.stack.pop()
+                arr = self.get_array(state, array_ref)
+                if arr is None:
+                    return "null pointer"
+                frame.stack.push(jvm.Value.int(len(arr)))
+                frame.pc += 1
+                return state
+            case jvm.ArrayStore(type=_t):
+                value = frame.stack.pop()
+                index = frame.stack.pop()
+                array_ref = frame.stack.pop()
+                assert index.type == jvm.Int(), f"expected int index, got {index}"
+                arr = self.get_array(state, array_ref)
+                if arr is None:
+                    return "null pointer"
+                i = index.value
+                if i < 0 or i >= len(arr):
+                    return "out of bounds"
+                arr[i] = value.value
                 frame.pc += 1
                 return state
             case jvm.Binary(type=jvm.Int(), operant=jvm.BinaryOpr.Div):
