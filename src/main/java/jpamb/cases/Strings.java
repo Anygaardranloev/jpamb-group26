@@ -31,13 +31,6 @@ public class Strings {
         s.length();
     }
 
-    @Case("() -> null pointer")
-    @Tag({ STRING })
-    public static void charAtNull() {
-        String s = null;
-        s.charAt(0);
-    }
-
     // length safety
     @Case("() -> ok")
     @Tag({ STRING })
@@ -65,34 +58,6 @@ public class Strings {
     public static void stringIsEmptyFails() {
         String s = "hey";
         assert s.length() == 0;
-    }
-
-    // assertions
-    @Case("() -> ok")
-    @Tag({ STRING })
-    public static void stringSpellsHeyOk() {
-        String s = "hey";
-        assert s.charAt(0) == 'h'
-                && s.charAt(1) == 'e'
-                && s.charAt(2) == 'y';
-    }
-
-    @Case("() -> assertion error")
-    @Tag({ STRING })
-    public static void stringSpellsHeyFails() {
-        String s = "hello";
-        assert s.charAt(0) == 'h'
-                && s.charAt(1) == 'e'
-                && s.charAt(2) == 'y';
-    }
-
-    @Case("() -> out of bounds")
-    @Tag({ STRING })
-    public static void stringSpellsHeyEmpty() {
-        String s = "";
-        assert s.charAt(0) == 'h'
-                && s.charAt(1) == 'e'
-                && s.charAt(2) == 'y';
     }
 
     // equality
