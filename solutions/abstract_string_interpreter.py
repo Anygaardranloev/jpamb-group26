@@ -1,3 +1,4 @@
+import argparse
 import sys
 import jpamb
 from jpamb import jvm
@@ -289,12 +290,12 @@ class Interpreter:
                 frame.pc += 1
                 yield state
 
-            case jvm.Load(type=jvm.String(), index=i):
+            case jvm.Load(type=_t, index=i):
                 frame.stack.push(frame.locals[i])
                 frame.pc += 1
                 yield state
                 
-            case jvm.Return(type=jvm.String()):
+            case jvm.Return(type=_t):
                 state.frames.pop()
                 if state.frames:
                     frame = state.frames.peek()
@@ -327,7 +328,6 @@ class Interpreter:
                 frame.pc += 1
                 yield state
             
-            #todo: needs to be string
             case jvm.Store(type=jvm.String(), index=i):
                 v = frame.stack.pop()
                 frame.locals[i] = v
@@ -362,14 +362,14 @@ class Interpreter:
                         case "length":
                             recv = frame.stack.pop()
                             if recv is None:
-                                return "null pointer"
+                                yield "null pointer"
                             
                             value = self.get_stringSign(state,recv)
                             
                             StringOperation.getLength(value)
 
                             frame.pc += 1
-                            return state
+                            yield state
                         case "concat":
                             arg = frame.stack.pop()
                             recv = frame.stack.pop()
@@ -381,6 +381,7 @@ class Interpreter:
                                 self.alloc_string_object(state, StringOperation.concat(value1,value2))
                             )
                             frame.pc += 1
+                            yield state
                         case "equals":
                             arg = frame.stack.pop()
                             recv = frame.stack.pop()
@@ -398,6 +399,7 @@ class Interpreter:
                             
                             frame.stack.push(jvm.Value(jvm.Boolean(), is_equal))
                             frame.pc += 1
+                            yield state
 
                         case "equalsIgnoreCase": # same as equals
                             arg = frame.stack.pop()
@@ -416,6 +418,7 @@ class Interpreter:
                             
                             frame.stack.push(jvm.Value(jvm.Boolean(), is_equal))
                             frame.pc += 1
+                            yield state
 
                         case "charAt":
                             index = frame.stack.pop()
@@ -431,11 +434,13 @@ class Interpreter:
                             stringSign = self.get_stringSign(state,recv)
 
                             result = StringOperation.getChar(stringSign,i)
+                            frame.pc += 1
 
                             if isinstance(result,StringSign):
                                 frame.stack.push(self.alloc_string_object(state,result))
-                        
-                            frame.pc += 1
+                                yield state
+                            elif isinstance(result,Literal):
+                                yield "out of bounds"
 
                         case "substring":
                             end = frame.stack.pop()
@@ -448,14 +453,21 @@ class Interpreter:
 
                             stringSign = self.get_stringSign(state,recv)
 
-                            StringOperation.subString(stringSign,beginIndex,endIndex)
+                            result = StringOperation.subString(stringSign,beginIndex,endIndex)
+
+                            if isinstance(result,StringSign):
+                                frame.stack.push(self.alloc_string_object(state,result))
+                                yield state
+                            elif isinstance(result,Literal):
+                                yield "out of bounds"
+                            
                         case name:
                             raise NotImplementedError(
                                 f"Don't know how to handle: {name}"
                             )
                 else:  # not a string
                     frame.pc += 1
-                    return state
+                    yield state
 
             case jvm.Throw():
                 yield "assertion error"
@@ -467,32 +479,16 @@ class Interpreter:
     
         frame = Frame.from_method(methodid)
     
-        for i, v in enumerate(input.values):
-            match v: 
-                case jvm.Value(type=jvm.Int(), value = value):
-
-                    assert isinstance(value,int)
-                    jvm.Value(jvm.Reference(), value)
-                    frame.locals[i] = v
-                    
-                case jvm.Value(type=jvm.Boolean(), value = value):
-
-                    assert isinstance(value,bool)
-                    jvm.Value(jvm.Reference(), value)
-                    frame.locals[i] = v
-
-                case jvm.Value(type=jvm.String(), value = value):
-                    assert isinstance(value,str)
-                    jvm.Value(jvm.Reference(), StringSign.abstract(value))
-                    frame.locals[i] = v
-                case _:
-                    raise NotImplementedError(f"Don't know how to handle input value: {v!r}")
+        for i, v in enumerate(method_args):
+            frame.locals[i] = v
 
         results = set()
-        worklist = deque([State({}, Stack.empty().push(frame))])
+        
+        states: Iterable[State] = deque([State({},Stack.empty().push(frame))])
+        steps = 0
 
-        while worklist and steps < max_steps:
-            state = worklist.popleft()
+        while states and steps < max_steps:
+            state = states.popleft()
             steps += 1
 
             out = self.step(state)
@@ -501,22 +497,48 @@ class Interpreter:
                 if isinstance(nxt, str):  # Terminated with result
                     results.add(nxt)
                 else:
-                    worklist.append(nxt)
+                    states.append(nxt)
+        
         if steps >= max_steps:
             results.add("*")
-
+        
         return results
 
 def main():
-# run: uv run solutions/abstract_string_interpreter.py --filter "Strings"
+    example = """Example usage:
+    uv run solutions/abstract_string_interpreter.py "jpamb.cases.Simple.assertInteger:(I)V" "(0)"
+    uv run solutions/abstract_string_interpreter.py "jpamb.cases.Strings.lenOfNull:()V" "()"
+"""
 
-    suite = jpamb.Suite()
+    ap = argparse.ArgumentParser(
+        epilog=example, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    ap.add_argument("methodid", type=str, help="Method ID to execute")
+    ap.add_argument(
+        "input",
+        type=str,
+        help="Input values as a comma-separated string wrapped in parentheses",
+    )
+    ap.add_argument(
+        "--max-steps", type=int, default=1000, help="Maximum number of steps"
+    )
+    args = ap.parse_args()
 
-    methodid, input = jpamb.getcase()
+    try:
+        methodid = jvm.AbsMethodID.decode(args.methodid)
+    except Exception as e:
+        logger.error(f"Failed to decode method ID: {e}")
+        return
+
+    try:
+        method_args = jpamb.Input.decode(args.input)
+    except Exception as e:
+        logger.error(f"Failed to decode input: {e}")
+        return
 
     suite = jpamb.Suite()
     interpreter = Interpreter(suite)
-    result = interpreter.run_method(methodid, input.values, 1000)
+    result = interpreter.run_method(methodid, method_args.values, args.max_steps)
 
     print(result)
 
