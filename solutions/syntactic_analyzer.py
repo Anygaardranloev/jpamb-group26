@@ -1,12 +1,19 @@
 #!/usr/bin/env python3
 """
-Syntactic analyzer, which checks for:
--
+tree-sitter based syntactic analysis which extracts:
+- int literals
+- string literals
+- char literals
+- boolean usages
+- comparison constants (var, op, val)
+- numeric constants inside string manipulation
 """
 import re
 
 import jpamb
 import json
+import tree_sitter
+import tree_sitter_java
 
 methodid = jpamb.getmethodid(
     "syntactic_analyzer",
@@ -16,37 +23,111 @@ methodid = jpamb.getmethodid(
     for_science=True
 )
 
-src = jpamb.sourcefile(methodid).read_text()
+JAVA_LANGUAGE = tree_sitter.Language(tree_sitter_java.language())
+parser = tree_sitter.Parser(JAVA_LANGUAGE)
 
-int_literals = sorted(set(re.findall(r'\b(\d+)\b', src)))
+class SyntacticAnalyzer:
+    def __init__(self, methodid):
+        self.methodid = methodid
+        self.src = jpamb.sourcefile(methodid).read_text()
+        self.tree = parser.parse(self.src.encode("utf8"))
+        self.root = self.tree.root_node
 
-string_literals = sorted(set(m.group(1) for m in re.finditer(r'"([^"\\]*(?:\\.[^"\\]*)*)"', src)))
 
-char_literals = sorted(set(m.group(1) for m in re.finditer(r"'([^'\\]|\\.)'", src)))
+    def treewalk(self, kind):
+        stack = [self.root]
+        while stack:
+            node = stack.pop()
+            if node.type == kind:
+                yield node
+            stack.extend(node.children)
 
-# note: dont know if this is useful :p
-uses_bool_literals = False
-if "true" in src or "false" in src:
-    uses_bool_literals = True
 
-# store as triplet: (var, op, val)
-comparison_ints = []
-for m in re.finditer(r'(\w+)\s*(==|!=|<=|>=|<|>)\s*(\d+)', src):
-    comparison_ints.append((m.group(1), m.group(2), m.group(3)))
-for m in re.finditer(r'(\d+)\s*(==|!=|<=|>=|<|>)\s*(\w+)', src):
-    comparison_ints.append((m.group(3), m.group(2), m.group(1)))
+    def text_of(self, node):
+        return self.src[node.start_byte : node.end_byte]
 
-string_method_ints = []
-for m in re.finditer(r'\b(substring|charAt|indexOf)\s*\(\s*(\d+)', src):
-    string_method_ints.append(m.group(2))
-string_method_ints = sorted(set(string_method_ints))
 
-result = {
-    "int_literals": int_literals,
-    "string_literals": string_literals,
-    "char_literals": char_literals,
-    "uses_bool_literals": uses_bool_literals,
-    "comparison_ints": comparison_ints,
-}
+    def get_int_lits(self):
+        ints = []
+        for n in self.treewalk("decimal_integer_literal"):
+            ints.append(self.text_of(n))
+        return sorted(set(ints))
 
-print(json.dumps(result, ensure_ascii=False))
+
+    def get_str_lits(self):
+        strs = []
+        for n in self.treewalk("string_literal"):
+            strs.append(self.text_of(n))
+        return sorted(set(strs))
+
+
+    def get_char_lits(self):
+        chars = []
+        for n in self.treewalk("character_literal"):
+            lit = self.text_of(n)
+            chars.append(lit.strip("'"))
+        return sorted(set(chars))
+
+
+    # still dont know if useful
+    def get_uses_bool(self):
+        for n in self.treewalk("boolean_literal"):
+            return True
+        return False
+
+
+    def get_comp_consts(self):
+        comps = []
+        for n in self.treewalk("binary_expression"):
+            op = n.child_by_field_name("operator")
+            if not op:
+                continue
+            op_text = self.text_of(op)
+
+            if op_text not in {"==", "!=", "<=", ">=", "<", ">"}:
+                continue
+
+            left = n.child_by_field_name("left")
+            right = n.child_by_field_name("right")
+            if not left or not right:
+                continue
+
+            left_text = self.text_of(left)
+            right_text = self.text_of(right)
+
+            if left.type == "identifier" and right.type == "decimal_integer_literal":
+                comps.append((left_text, op_text, right_text))
+            if right.type == "identifier" and left.type == "decimal_integer_literal":
+                comps.append((right_text, op_text, left_text))
+
+        return sorted(set(comps))
+
+
+    def get_str_method_consts(self):
+        str_method_consts = []
+        for n in self.treewalk("method_invocation"):
+            name_n = n.child_by_field_name("name")
+            if not name_n:
+                continue
+            name = self.text_of(name_n)
+            if name not in {"substring", "charAt", "indexOf"}:
+                continue
+
+            args = n.child_by_field_name("arguments")
+            if not args:
+                continue
+            for child in args.children:
+                if child.type == "decimal_integer_literal":
+                    str_method_consts.append(self.text_of(child))
+
+        return sorted(set(str_method_consts))
+
+    def get_all(self):
+        return {
+            "int_lits":             self.get_int_lits(),
+            "str_lits":             self.get_str_lits(),
+            "char_lits":            self.get_char_lits(),
+            "uses_bool":            self.get_uses_bool(),
+            "comp_consts":          self.get_comp_consts(),
+            "str_method_consts":    self.get_str_method_consts(),
+        }
