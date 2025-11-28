@@ -223,37 +223,37 @@ class Interpreter:
 
         assert False, f"expected string ref id or literal, got {v}"
 
-    def step(self, state : State) -> Iterable[State | str]:
+    def step(self, state : State) -> State | str:
         assert isinstance(state, State), f"expected frame but got {state}"
         frame = state.frames.peek()
         opr = self.bc[frame.pc]
         logger.debug(f"STEP {opr}\n{state}")
+        
         match opr:
             case jvm.Push(value=v):
                 if v.type == jvm.Reference() and isinstance(v.value, str):
                     frame.stack.push(StringSign.abstract(v.value))
                 frame.pc += 1
-                yield state
+                return state
 
             case jvm.Load(type=_t, index=i):
                 frame.stack.push(frame.locals[i])
                 frame.pc += 1
-                yield state
+                return state
                 
             case jvm.Return(type=_t):
                 state.frames.pop()
                 if state.frames:
                     frame = state.frames.peek()
                     frame.pc += 1
-                    yield state
+                    return state
                 else:
-                    yield "ok"
+                    return "ok"
                     
             case jvm.Get(static=is_static, field=field):
-                if "$assertionsDisabled" in str(field):
-                    frame.stack.push("0")  # assertions are enabled
-                    frame.pc += 1
-                    yield state
+                frame.stack.push(jvm.Value.int(0))
+                frame.pc += 1
+                return state
             
             case jvm.New(classname=_cls):
                 if str(_cls) == "java/lang/String":
@@ -265,23 +265,23 @@ class Interpreter:
                     frame.stack.push(jvm.Value.int(0))
                 frame.stack.push(obj_ref)
                 frame.pc += 1
-                yield state
+                return state
 
             case jvm.Dup():
                 v = frame.stack.peek()
                 frame.stack.push(v)
                 frame.pc += 1
-                yield state
+                return state
             
             case jvm.Store(type=_t, index=i):
                 v = frame.stack.pop()
                 frame.locals[i] = v
                 frame.pc += 1
-                yield state
+                return state
             
             case jvm.Goto(target=t):
                 frame.pc = PC(frame.pc.method, t)
-                yield state
+                return state
             
             case jvm.InvokeSpecial(method=mid):
                 method_name = mid.extension.name
@@ -292,11 +292,11 @@ class Interpreter:
                     state.heap[obj_ref] = StringSign.abstract("")
                     frame.stack.push(state.heap[obj_ref])
                     frame.pc += 1
-                    yield state
+                    return state
                 else:
                     # Handle other special methods
                     frame.pc += 1
-                    yield state
+                    return state
                 
             case jvm.InvokeVirtual(method=m):
                 ms = str(m)
@@ -307,26 +307,30 @@ class Interpreter:
                         case "length":
                             recv = frame.stack.pop()
                             if recv is None:
-                                yield "null pointer"
+                                return "null pointer"
                             
                             value = self.get_stringSign(state,recv)
                             
-                            StringOperation.getLength(value)
-
+                            frame.stack.push(StringOperation.getLength(value))
                             frame.pc += 1
-                            yield state
+                            return state
                         case "concat":
                             arg = frame.stack.pop()
                             recv = frame.stack.pop()
 
+                            if recv.value is None or arg.value is None:
+                                return "null pointer"
+                            
                             value1 = self.get_stringSign(state, arg)
                             value2 = self.get_stringSign(state,recv)
+
+                            assert isinstance(value1, StringSign) and isinstance(value2,StringSign), f"expected StringSign argument, got 1. {arg}, 2. {recv}"
 
                             frame.stack.push(
                                 self.alloc_string_object(state, StringOperation.concat(value1,value2))
                             )
                             frame.pc += 1
-                            yield state
+                            return state
                         case "equals":
                             arg = frame.stack.pop()
                             recv = frame.stack.pop()
@@ -344,7 +348,7 @@ class Interpreter:
                             
                             frame.stack.push(jvm.Value(jvm.Boolean(), is_equal))
                             frame.pc += 1
-                            yield state
+                            return state
 
                         case "equalsIgnoreCase": # same as equals
                             arg = frame.stack.pop()
@@ -363,7 +367,7 @@ class Interpreter:
                             
                             frame.stack.push(jvm.Value(jvm.Boolean(), is_equal))
                             frame.pc += 1
-                            yield state
+                            return state
 
                         case "charAt":
                             index = frame.stack.pop()
@@ -376,16 +380,22 @@ class Interpreter:
                                 i, int
                             ), f"expected int receiver, got {recv}"
 
+                            if recv.value is None:
+                                return "out of bounds"
+                            
                             stringSign = self.get_stringSign(state,recv)
-
+                            assert isinstance(
+                                stringSign, str
+                            ), f"expected String receiver, got {recv}"
+                            
                             result = StringOperation.getChar(stringSign,i)
                             frame.pc += 1
 
                             if isinstance(result,StringSign):
                                 frame.stack.push(self.alloc_string_object(state,result))
-                                yield state
-                            elif isinstance(result,Literal):
-                                yield "out of bounds"
+                                return state
+                            else:
+                                return "out of bounds"
 
                         case "substring":
                             end = frame.stack.pop()
@@ -396,15 +406,22 @@ class Interpreter:
 
                             assert isinstance(beginIndex, int) and isinstance(endIndex,int),f"expected int indices, got {start}, {end}"
 
+                            if recv.value is None:
+                                return "out of bounds"
+                            
                             stringSign = self.get_stringSign(state,recv)
 
-                            result = StringOperation.subString(stringSign,beginIndex,endIndex)
+                            assert isinstance(
+                                stringSign, StringSign
+                            ), f"expected String receiver, got {recv}"
 
+                            result = StringOperation.subString(stringSign,beginIndex,endIndex)
+                            
                             if isinstance(result,StringSign):
                                 frame.stack.push(self.alloc_string_object(state,result))
-                                yield state
-                            elif isinstance(result,Literal):
-                                yield "out of bounds"
+                                return state
+                            else:
+                                return "out of bounds"
                             
                         case name:
                             raise NotImplementedError(
@@ -412,42 +429,28 @@ class Interpreter:
                             )
                 else:  # not a string
                     frame.pc += 1
-                    yield state
+                    return state
 
             case jvm.Throw():
-                yield "assertion error"
+                return "assertion error"
             
             case a:
                 raise NotImplementedError(f"Don't know how to handle: {a!r}")
     
-    def run_method(self,methodid: jvm.AbsMethodID,method_args: Tuple[jvm.Value, ...],max_steps: int = 1000) -> set[Union[State, str]]:
+    def run_method(self,methodid: jvm.AbsMethodID,method_args: Tuple[jvm.Value, ...],max_steps: int = 1000) -> str:
     
         frame = Frame.from_method(methodid)
     
         for i, v in enumerate(method_args):
             frame.locals[i] = v
 
-        results = set()
-        
-        states: Iterable[State] = deque([State({},Stack.empty().push(frame))])
-        steps = 0
+        state = State({}, Stack.empty().push(frame))
 
-        while states and steps < max_steps:
-            state = states.popleft()
-            steps += 1
-
-            out = self.step(state)
-
-            for nxt in out:
-                if isinstance(nxt, str):  # Terminated with result
-                    results.add(nxt)
-                else:
-                    states.append(nxt)
-        
-        if steps >= max_steps:
-            results.add("*")
-        
-        return results
+        for _ in range(max_steps):
+            state = self.step(state)
+            if isinstance(state, str):
+                return state
+        return "*"
 
 def main():
     example = """Example usage:
