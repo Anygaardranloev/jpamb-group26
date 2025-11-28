@@ -73,61 +73,6 @@ class StringSign:
 
     __repr__ = __str__
 
-@dataclass(frozen=True)
-class SignSet:
-    stringSet: FrozenSet[StringSign]
-
-    @classmethod
-    def abstract(cls, strings: set[str]) -> "SignSet":
-        
-        stringSet = frozenset(StringSign.abstract(s) for s in strings)
-
-        return cls(stringSet)
-    
-    # Lattice ops
-    def join(self, other: "SignSet") -> "SignSet":
-        # join is union of abstractions
-        if self is BOTTOM:
-            return other
-        if other is BOTTOM:
-            return self
-
-        return SignSet(self.stringSet | other.stringSet)
-
-    def meet(self, other: "SignSet") -> "SignSet":
-        # meet is intersection of abstractions
-        if self is TOP:
-            return other
-        if other is TOP:
-            return self
-
-        return SignSet(self.stringSet & other.stringSet)
-
-    def is_leq(self, other: "SignSet") -> bool:
-        # self <= other if all abstractions in self are in other
-        return self.stringSet <= other.stringSet
-    
-    def __str__(self) -> str:
-        if not self.stringSet:
-            return "<SignSet ∅>"
-
-        parts = "\n  ".join(str(s) for s in sorted(self.stringSet, key=lambda x: x.length))
-        return f"<SignSet {{\n  {parts}\n}}>"
-
-    __repr__ = __str__
-
-BOTTOM = SignSet(frozenset())
-
-TOP = SignSet(
-    frozenset({
-        StringSign(
-            signs=frozenset({"letters", "numbers", "symbols"}),
-            encodings=frozenset({"latin1", "utf16"}),
-            length=-1 # -1 = ANY length
-        )
-    })
-)
-
 class StringOperation:
 
     @staticmethod
@@ -328,7 +273,7 @@ class Interpreter:
                 frame.pc += 1
                 yield state
             
-            case jvm.Store(type=jvm.String(), index=i):
+            case jvm.Store(type=_t, index=i):
                 v = frame.stack.pop()
                 frame.locals[i] = v
                 frame.pc += 1
