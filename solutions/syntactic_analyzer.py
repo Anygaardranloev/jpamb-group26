@@ -8,7 +8,6 @@ tree-sitter based syntactic analysis which extracts:
 - comparison constants (var, op, val)
 - numeric constants inside string manipulation
 """
-import re
 
 import jpamb
 import json
@@ -76,7 +75,7 @@ class SyntacticAnalyzer:
         return False
 
 
-    def get_comp_consts(self):
+    def get_int_comps(self):
         comps = []
         for n in self.treewalk("binary_expression"):
             op = n.child_by_field_name("operator")
@@ -122,12 +121,50 @@ class SyntacticAnalyzer:
 
         return sorted(set(str_method_consts))
 
+
+    # returns set of triplets: (s.length(), op, int)
+    def get_str_length_comps(self):
+        comps = []
+        for n in self.treewalk("binary_expression"):
+            op = n.child_by_field_name("operator")
+            if not op:
+                continue
+            op_text = self.text_of(op)
+            if op_text not in {"==", "!=", "<=", ">=", "<", ">"}:
+                continue
+
+            left = n.child_by_field_name("left")
+            right = n.child_by_field_name("right")
+            if not left or not right:
+                continue
+
+            if left.type == "method_invocation":
+                name = left.child_by_field_name("name")
+                if name and self.text_of(name) == "length":
+                    target = left.child_by_field_name("object")
+                    if target and right.type == "decimal_integer_literal":
+                        comps.append((self.text_of(target), op_text, self.text_of(right)))
+
+            if right.type == "method_invocation":
+                name = right.child_by_field_name("name")
+                if name and self.text_of(name) == "length":
+                    target = right.child_by_field_name("object")
+                    if target and left.type == "decimal_integer_literal":
+                        comps.append((self.text_of(target), op_text, self.text_of(left)))
+
+        return sorted(set(comps))
+
+
     def get_all(self):
         return {
             "int_lits":             self.get_int_lits(),
             "str_lits":             self.get_str_lits(),
             "char_lits":            self.get_char_lits(),
             "uses_bool":            self.get_uses_bool(),
-            "comp_consts":          self.get_comp_consts(),
+            "int_comps":            self.get_int_comps(),
             "str_method_consts":    self.get_str_method_consts(),
+            "str_length_comps":     self.get_str_length_comps(),
         }
+
+analyzer = SyntacticAnalyzer(methodid)
+print(analyzer.get_all())
