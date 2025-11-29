@@ -155,6 +155,29 @@ class SyntacticAnalyzer:
         return sorted(set(comps))
 
 
+    def get_regex_patterns(self):
+        patterns = []
+        for n in self.treewalk("method_invocation"):
+            n_name = n.child_by_field_name("name")
+            if not n_name:
+                continue
+            name = self.text_of(n_name)
+            if name not in {"matches", "replaceAll", "split"}:
+                continue
+
+            args = n.child_by_field_name("arguments")
+            if not args:
+                continue
+
+            for child in args.children:
+                if child.type == "string_literal":
+                    pattern = self.text_of(child).strip('"')
+                    patterns.append((name, pattern))
+                    break
+
+        return patterns
+
+
     def get_all(self):
         return {
             "int_lits":             self.get_int_lits(),
@@ -164,6 +187,7 @@ class SyntacticAnalyzer:
             "int_comps":            self.get_int_comps(),
             "str_method_consts":    self.get_str_method_consts(),
             "str_length_comps":     self.get_str_length_comps(),
+            "regex_patterns":       self.get_regex_patterns(),
         }
 
 analyzer = SyntacticAnalyzer(methodid)
