@@ -189,6 +189,3 @@ class SyntacticAnalyzer:
             "str_length_comps":     self.get_str_length_comps(),
             "regex_patterns":       self.get_regex_patterns(),
         }
-
-analyzer = SyntacticAnalyzer(methodid)
-print(analyzer.get_all())
