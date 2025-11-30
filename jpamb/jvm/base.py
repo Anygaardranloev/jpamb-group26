@@ -327,6 +327,19 @@ class Object(Type):
     def math(self):
         return f"object {self.name}"
 
+@dataclass(frozen=True, order=True)
+class String(Type):
+    _instance = None
+    def __new__(cls) -> "String":
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+
+    def encode(self):
+        return "Ljava/lang/String;"
+    
+    def math(self):
+        return "string"
 
 @dataclass(frozen=True, order=True)
 class Array(Type):

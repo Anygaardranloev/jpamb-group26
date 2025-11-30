@@ -421,7 +421,7 @@ class Interpreter:
                                     s_arg, str
                                 ), f"expected String argument, got {arg}"
                             frame.stack.push(
-                                self.alloc_string_object(state, s_recv + s_arg)
+                                self.alloc_string_object(state, "".join([s_recv,s_arg]))
                             )
                             frame.pc += 1
                             return state
