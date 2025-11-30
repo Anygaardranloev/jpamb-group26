@@ -253,32 +253,26 @@ class Fuzzer:
         # With some probability, use syntaxer-extracted integer literals as
         # mutation targets. This lets the fuzzer quickly steer inputs towards
         # constants that appear in the program under test.
-        if self.literals.get("int_literals") and self.random.random() < 0.35:
-            cand = self.random.choice(self.literals["int_literals"])
-            try:
-                #
-                # ``int_literals`` may contain either ints or strings; we
-                # accept both and fall back silently if conversion fails.
-                #
-                target = int(cand)
-            except (TypeError, ValueError):
-                target = None
+        if (
+            self.literals
+            and self.literals["int_literals"]
+            and self.random.random() < 0.35
+        ):
+            target = self.random.choice(self.literals["int_literals"])
+            # Occasionally return the literal exactly; otherwise nudge the
+            # current value towards that literal to keep some diversity.
+            if self.random.random() < 0.5:
+                new_val = target
+            else:
+                delta = target - val
+                step = max(1, abs(delta) // self.random.randint(2, 6))
+                new_val = val + (step if delta > 0 else -step)
+            return jvm.Value(jvm.Int(), new_val)
 
-            if target is not None:
-                # Occasionally return the literal exactly; otherwise nudge the
-                # current value towards that literal to keep some diversity.
-                if self.random.random() < 0.5:
-                    new_val = target
-                else:
-                    delta = target - val
-                    step = max(1, abs(delta) // self.random.randint(2, 6))
-                    new_val = val + (step if delta > 0 else -step)
-                return jvm.Value(jvm.Int(), new_val)
-
-        if random.random() < 0.2:
+        if self.random.random() < 0.2:
             mutation = self.random.choice([-10, -1, 1, 10, 42, -42])
             new_val = val + mutation
-        elif random.random() < 0.8:
+        elif self.random.random() < 0.8:
             random_byte = self.random.randint(0, 255)
             random_shift = self.random.choice([0, 8, 16, 24])
             new_val = (val & ~(0xFF << random_shift)) | (random_byte << random_shift)
