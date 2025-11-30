@@ -70,7 +70,7 @@ class StringSign:
     def __str__(self) -> str:
         signs = ", ".join(sorted(self.signs))
         encs  = ", ".join(sorted(self.encodings))
-        return f"<StringSign signs=[{signs}] encodings=[{encs}] length={self.length}>"
+        return f"string-[{signs}]-[{encs}]-{self.length}"
 
     __repr__ = __str__
 
@@ -86,7 +86,7 @@ class StringOperation:
     
     @staticmethod
     def getChar(string: StringSign, place: int):
-        if string.length > place:
+        if place > 0 and string.length > place:
             return StringSign.newStringSign(string.signs,string.encodings,1)
         else:
             return "out of bounds"
@@ -216,7 +216,7 @@ class Interpreter:
         self.suite = suite
         self.bc = Bytecode(suite, dict())
     
-    def _bin_int(self, frame, state, op):
+    def _bin_int(self, frame: Frame, state: State, op):
         v2, v1 = frame.stack.pop(), frame.stack.pop()
         assert (
             v1.type == jvm.Int() and v2.type == jvm.Int()
@@ -256,7 +256,7 @@ class Interpreter:
 
         assert False, f"expected string ref id or literal, got {v}"
 
-    def step(self, state : State) -> Iterable[State | str]:
+    def step(self, state : State) -> State | str:
         assert isinstance(state, State), f"expected frame but got {state}"
         frame = state.frames.peek()
         opr = self.bc[frame.pc]
@@ -272,7 +272,7 @@ class Interpreter:
                 else:
                     frame.stack.push(v)
                 frame.pc += 1
-                yield state
+                return state
 
             case jvm.Incr(index=i, amount=c):
                 old_val = frame.locals.get(i, jvm.Value.int(0))
@@ -281,7 +281,7 @@ class Interpreter:
                 ), f"expected int local var, got {old_val}"
                 frame.locals[i] = jvm.Value.int(old_val.value + c)
                 frame.pc += 1
-                yield state
+                return state
 
             case jvm.Pop():
                 frame.stack.pop()
@@ -291,21 +291,26 @@ class Interpreter:
             case jvm.Load(type=_t, index=i):
                 frame.stack.push(frame.locals[i])
                 frame.pc += 1
-                yield state
+                return state
                 
             case jvm.Return(type=_t):
                 state.frames.pop()
                 if state.frames:
                     frame = state.frames.peek()
                     frame.pc += 1
-                    yield state
+                    return state
                 else:
-                    yield "ok"
+                    return "ok"
                     
             case jvm.Get(static=is_static, field=field):
                 frame.stack.push(jvm.Value.int(0))
                 frame.pc += 1
-                yield state
+                return state
+            
+            case jvm.Get(static=True):
+                frame.stack.push(jvm.Value.int(0))
+                frame.pc += 1
+                return state
             
             case jvm.New(classname=_cls):
                 if str(_cls) == "java/lang/String":
@@ -314,13 +319,14 @@ class Interpreter:
                 else:
                     frame.stack.push(jvm.Value.int(0))
                 frame.pc += 1
-                yield state
+                return state
 
             case jvm.Dup():
                 v = frame.stack.peek()
                 frame.stack.push(v)
                 frame.pc += 1
-                yield state
+                return state
+            
             case jvm.Dup(depth=_d):
                 frame.stack.push(frame.stack.peek())
                 frame.pc += 1
@@ -330,11 +336,11 @@ class Interpreter:
                 v = frame.stack.pop()
                 frame.locals[i] = v
                 frame.pc += 1
-                yield state
+                return state
             
             case jvm.Goto(target=t):
                 frame.pc = PC(frame.pc.method, t)
-                yield state
+                return state
             
             case jvm.Ifz(condition=cond, target=t):
                 v = frame.stack.pop()
@@ -359,7 +365,7 @@ class Interpreter:
                 else:
                     raise NotImplementedError(f"Unknown Ifz condition: {c}")
                 frame.pc = PC(frame.pc.method, t) if jump else (frame.pc + 1)
-                yield state
+                return state
             
             case jvm.If(condition=cond, target=t):
                 v2 = frame.stack.pop()
@@ -397,11 +403,11 @@ class Interpreter:
                     state.heap[obj_ref] = StringSign.abstract("")
                     frame.stack.push(state.heap[obj_ref])
                     frame.pc += 1
-                    yield state
+                    return state
                 else:
                     # Handle other special methods
                     frame.pc += 1
-                    yield state
+                    return state
                 
             case jvm.InvokeVirtual(method=m):
                 ms = str(m)
@@ -421,7 +427,7 @@ class Interpreter:
                             
                             frame.stack.push(StringOperation.getLength(value))
                             frame.pc += 1
-                            yield state
+                            return state
                         case "concat":
                             arg = frame.stack.pop()
                             recv = frame.stack.pop()
@@ -438,7 +444,7 @@ class Interpreter:
                                 self.alloc_string_object(state, StringOperation.concat(value1,value2))
                             )
                             frame.pc += 1
-                            yield state
+                            return state
                         case "equals":
                             arg = frame.stack.pop()
                             recv = frame.stack.pop()
@@ -456,7 +462,7 @@ class Interpreter:
                             
                             frame.stack.push(jvm.Value(jvm.Boolean(), is_equal))
                             frame.pc += 1
-                            yield state
+                            return state
 
                         case "equalsIgnoreCase": # same as equals
                             arg = frame.stack.pop()
@@ -475,7 +481,7 @@ class Interpreter:
                             
                             frame.stack.push(jvm.Value(jvm.Boolean(), is_equal))
                             frame.pc += 1
-                            yield state
+                            return state
 
                         case "charAt":
                             index = frame.stack.pop()
@@ -493,15 +499,15 @@ class Interpreter:
                             
                             stringSign = self.get_stringSign(state,recv)
                             assert isinstance(
-                                stringSign, str
+                                stringSign, StringSign
                             ), f"expected String receiver, got {recv}"
                             
                             result = StringOperation.getChar(stringSign,i)
-                            frame.pc += 1
 
                             if isinstance(result,StringSign):
                                 frame.stack.push(self.alloc_string_object(state,result))
-                                yield state
+                                frame.pc += 1
+                                return state
                             else:
                                 return "out of bounds"
 
@@ -527,7 +533,8 @@ class Interpreter:
                             
                             if isinstance(result,StringSign):
                                 frame.stack.push(self.alloc_string_object(state,result))
-                                yield state
+                                frame.pc += 1
+                                return state
                             else:
                                 return "out of bounds"
                             
@@ -537,7 +544,7 @@ class Interpreter:
                             )
                 else:  # not a string
                     frame.pc += 1
-                    yield state
+                    return state
             case jvm.Binary(type=jvm.Int(), operant=jvm.BinaryOpr.Mul):
                 return self._bin_int(frame, state, lambda a, b: a * b)
 
@@ -548,37 +555,23 @@ class Interpreter:
                 return self._bin_int(frame, state, lambda a, b: a - b)
 
             case jvm.Throw():
-                yield "assertion error"
+                return "assertion error"
             
             case a:
                 raise NotImplementedError(f"Don't know how to handle: {a!r}")
     
-    def run_all(self, initial: State, max_steps: int = 1000) -> set[str]:
+    def run_all(self, initial: State, max_steps: int = 1000) -> str:
         """Runs symbolic execution until all branches terminate or max_steps reached."""
-        results = set()
-        worklist = deque([initial])
-        steps = 0
+        
+        state = initial
+
+        for _ in range(max_steps):
+            state = self.step(state)
+            if isinstance(state, str):
+                return state
+        return "*"
 
 
-        try: 
-            while worklist and steps < max_steps:
-                state = worklist.popleft()
-                steps += 1
-
-                out = self.step(state)
-
-                for nxt in out:
-                    if isinstance(nxt, str):  # Terminated with result
-                        results.add(nxt)
-                    else:
-                        worklist.append(nxt)
-
-            if steps >= max_steps:
-                results.add("*")
-        except StopIteration as e:
-            return e.value
-
-        return results
 
 def createState(methodid: jvm.AbsMethodID, method_args: Tuple[jvm.Value, ...]) -> State:
     
@@ -592,6 +585,7 @@ def main():
     example = """Example usage:
     uv run solutions/abstract_string_interpreter.py "jpamb.cases.Strings.stringEqualsLiteralFails:()V" "()"
     uv run solutions/abstract_string_interpreter.py "jpamb.cases.Strings.stringLenSometimesNull:(I)V" "(100)"
+    uv run jpamb interpret -W --filter Strings solutions/abstract_string_interpreter.py
 """
 
     ap = argparse.ArgumentParser(
