@@ -2,13 +2,10 @@ import argparse
 import sys
 import jpamb
 from jpamb import jvm
-from jpamb import parse_input, parse_methodid
 from dataclasses import dataclass, field
-from collections.abc import Iterable
 import unicodedata
 import copy
-from typing import Tuple, Union
-from collections import deque
+from typing import Tuple
 from loguru import logger
 from dataclasses import dataclass
 from typing import FrozenSet, Literal
@@ -16,7 +13,7 @@ from typing import FrozenSet, Literal
 logger.remove()
 logger.add(sys.stderr, format="[{level}] {message}")
 
-Sign = Literal["letters", "numbers", "symbols"]
+Sign = Literal["L", "N", "S"]
 Encoding = Literal["latin1", "utf16"]
 
 @dataclass(frozen=True)
@@ -54,14 +51,14 @@ class StringSign:
 
         cat = unicodedata.category(ch)
         if cat.startswith("L"):
-            return "letters"
+            return "L"
         if cat.startswith("N"):
-            return "numbers"
-        return "symbols"
+            return "N"
+        return "S"
 
     @staticmethod
     def encoding_of_char(ch: str) -> Encoding:
-        # Python str gives full Unicode codepoints.
+
         cp = ord(ch)
         if cp <= 0xFF:
             return "latin1"
