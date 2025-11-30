@@ -10,20 +10,14 @@ tree-sitter based syntactic analysis which extracts:
 """
 
 import jpamb
+import argparse
 import json
 import tree_sitter
 import tree_sitter_java
 
-methodid = jpamb.getmethodid(
-    "syntactic_analyzer",
-    "0.1",
-    "group26",
-    ["syntactic", "python"],
-    for_science=True
-)
-
 JAVA_LANGUAGE = tree_sitter.Language(tree_sitter_java.language())
 parser = tree_sitter.Parser(JAVA_LANGUAGE)
+
 
 class SyntacticAnalyzer:
     def __init__(self, methodid):
@@ -31,7 +25,6 @@ class SyntacticAnalyzer:
         self.src = jpamb.sourcefile(methodid).read_text()
         self.tree = parser.parse(self.src.encode("utf8"))
         self.root = self.tree.root_node
-
 
     def treewalk(self, kind):
         stack = [self.root]
@@ -41,10 +34,8 @@ class SyntacticAnalyzer:
                 yield node
             stack.extend(node.children)
 
-
     def text_of(self, node):
         return self.src[node.start_byte : node.end_byte]
-
 
     def get_int_lits(self):
         ints = []
@@ -52,13 +43,11 @@ class SyntacticAnalyzer:
             ints.append(self.text_of(n))
         return sorted(set(ints))
 
-
     def get_str_lits(self):
         strs = []
         for n in self.treewalk("string_literal"):
             strs.append(self.text_of(n))
         return sorted(set(strs))
-
 
     def get_char_lits(self):
         chars = []
@@ -67,13 +56,11 @@ class SyntacticAnalyzer:
             chars.append(lit.strip("'"))
         return sorted(set(chars))
 
-
     # still dont know if useful
     def get_uses_bool(self):
         for n in self.treewalk("boolean_literal"):
             return True
         return False
-
 
     def get_int_comps(self):
         comps = []
@@ -101,7 +88,6 @@ class SyntacticAnalyzer:
 
         return sorted(set(comps))
 
-
     def get_str_method_consts(self):
         str_method_consts = []
         for n in self.treewalk("method_invocation"):
@@ -120,7 +106,6 @@ class SyntacticAnalyzer:
                     str_method_consts.append(self.text_of(child))
 
         return sorted(set(str_method_consts))
-
 
     # returns set of triplets: (s.length(), op, int)
     def get_str_length_comps(self):
@@ -143,17 +128,20 @@ class SyntacticAnalyzer:
                 if name and self.text_of(name) == "length":
                     target = left.child_by_field_name("object")
                     if target and right.type == "decimal_integer_literal":
-                        comps.append((self.text_of(target), op_text, self.text_of(right)))
+                        comps.append(
+                            (self.text_of(target), op_text, self.text_of(right))
+                        )
 
             if right.type == "method_invocation":
                 name = right.child_by_field_name("name")
                 if name and self.text_of(name) == "length":
                     target = right.child_by_field_name("object")
                     if target and left.type == "decimal_integer_literal":
-                        comps.append((self.text_of(target), op_text, self.text_of(left)))
+                        comps.append(
+                            (self.text_of(target), op_text, self.text_of(left))
+                        )
 
         return sorted(set(comps))
-
 
     def get_regex_patterns(self):
         patterns = []
@@ -177,15 +165,49 @@ class SyntacticAnalyzer:
 
         return patterns
 
-
     def get_all(self):
         return {
-            "int_lits":             self.get_int_lits(),
-            "str_lits":             self.get_str_lits(),
-            "char_lits":            self.get_char_lits(),
-            "uses_bool":            self.get_uses_bool(),
-            "int_comps":            self.get_int_comps(),
-            "str_method_consts":    self.get_str_method_consts(),
-            "str_length_comps":     self.get_str_length_comps(),
-            "regex_patterns":       self.get_regex_patterns(),
+            "int_lits": self.get_int_lits(),
+            "str_lits": self.get_str_lits(),
+            "char_lits": self.get_char_lits(),
+            "uses_bool": self.get_uses_bool(),
+            "int_comps": self.get_int_comps(),
+            "str_method_consts": self.get_str_method_consts(),
+            "str_length_comps": self.get_str_length_comps(),
+            "regex_patterns": self.get_regex_patterns(),
         }
+
+
+def main():
+    ap = argparse.ArgumentParser(
+        description="Syntactic analyzer for Java methods using tree-sitter"
+    )
+    ap.add_argument(
+        "methodid",
+        type=str,
+        help="The method ID to analyze, or 'info' to print info about this tool",
+    )
+    args = ap.parse_args()
+
+    if args.methodid == "info":
+        jpamb.printinfo(
+            "syntactic_analyzer",
+            "0.1",
+            "group26",
+            ["syntactic", "python"],
+            for_science=True,
+        )
+
+    try:
+        methodid = jpamb.jvm.AbsMethodID.decode(args.methodid)
+    except Exception as e:
+        print(f"Error: Invalid method ID '{args.methodid}': {e}")
+        return
+
+    analyzer = SyntacticAnalyzer(methodid)
+    result = analyzer.get_all()
+    print(json.dumps(result, indent=4))
+
+
+if __name__ == "__main__":
+    main()

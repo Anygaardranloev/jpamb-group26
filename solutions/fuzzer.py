@@ -109,6 +109,7 @@ class Fuzzer:
         max_iters: int = 1000,
         seed: int = 1337,
         max_corpus_size: int = 128,
+        use_syntactic_analysis: bool = False,
     ):
         self.interpreter = Interpreter(
             jpamb.Suite(), Coverage(bytearray(self.COVERAGE_SIZE))
@@ -117,7 +118,7 @@ class Fuzzer:
         self.target_method = methodid
         self.target_method_params = [param for param in methodid.extension.params]
         logger.info(
-            f"Fuzzing method: {self.target_method} with params {self.target_method_params}, seed={seed}"
+            f"Fuzzing method: {self.target_method} with params {self.target_method_params}, seed={seed}, use_syntactic_analysis={use_syntactic_analysis}"
         )
         self.max_steps = max_steps
         self.max_iters = max_iters
@@ -461,7 +462,22 @@ def main():
         default=128,
         help="Maximum size of the corpus",
     )
+    ap.add_argument(
+        "--use-syntactic-analysis",
+        type=bool,
+        default=False,
+        help="Whether to use syntactic analysis to guide fuzzing (1 = yes, 0 = no)",
+    )
     args = ap.parse_args()
+
+    if args.methodid == "info":
+        jpamb.printinfo(
+            "fuzzer",
+            "0.1",
+            "group26",
+            ["fuzzer", "python"],
+            for_science=True,
+        )
 
     try:
         methodid = jvm.AbsMethodID.decode(args.methodid)
@@ -475,6 +491,7 @@ def main():
         max_iters=args.max_iters,
         seed=args.seed,
         max_corpus_size=args.max_corpus_size,
+        use_syntactic_analysis=args.use_syntactic_analysis,
     )
     coverage = fuzzer.run(max_iters=args.max_iters)
 
