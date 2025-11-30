@@ -111,4 +111,27 @@ public class Fuzzer {
             assert false;
         }
     }
+
+    @Case("(\"X-API-KEY: secret-key-s3cur3p4ss\", 305419896) -> assertion error")
+    @Case("(\"X-API-KEY: wrong\", 0) -> ok")
+    @Case("(\"X-OTHER: secret-key-123\", 0) -> ok")
+    @Tag({ FUZZER })
+    public static void assertOnlyCorrectHeaderFormat(String header, int magic) {
+        String requiredPrefix = "X-API-KEY: ";
+        String secret = "secret-key-s3cur3p4ss";
+
+        if (header.length() < requiredPrefix.length() + secret.length()) {
+            return;
+        }
+
+        String prefix = header.substring(0, requiredPrefix.length());
+        if (!prefix.equals(requiredPrefix)) {
+            return;
+        }
+
+        String candidate = header.substring(requiredPrefix.length(), requiredPrefix.length() + secret.length());
+        if (candidate.equals(secret) && magic == 0x12345678) {
+            assert false;
+        }
+    }
 }

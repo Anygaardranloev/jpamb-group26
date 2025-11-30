@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, NamedTuple, Tuple, List
 
 from interpreter import PC, Interpreter
+from syntactic_analyzer import LiteralExtractor
 from loguru import logger
 
 import jpamb
@@ -130,6 +131,15 @@ class Fuzzer:
         self._crash_signatures: set[tuple] = set()
         self._stop_requested = False
         self.stagnant_iters = 0
+        # literals extracted by syntactic analyzer (per-type lists)
+        self.literals: dict[str, list] = {}
+        if use_syntactic_analysis:
+            literal_extractor = LiteralExtractor(methodid)
+            self.literals = {
+                "int_literals": literal_extractor.int_literals(),
+                "string_literals": literal_extractor.string_literals(),
+                "char_literals": literal_extractor.char_literals(),
+            }
 
         # install Ctrl-C handler to gracefully stop fuzzing
         signal.signal(signal.SIGINT, self._handle_sigint)
@@ -240,6 +250,31 @@ class Fuzzer:
         return testcase
 
     def mutate_int(self, val: int) -> jvm.Value:
+        # With some probability, use syntaxer-extracted integer literals as
+        # mutation targets. This lets the fuzzer quickly steer inputs towards
+        # constants that appear in the program under test.
+        if self.literals.get("int_literals") and self.random.random() < 0.35:
+            cand = self.random.choice(self.literals["int_literals"])
+            try:
+                #
+                # ``int_literals`` may contain either ints or strings; we
+                # accept both and fall back silently if conversion fails.
+                #
+                target = int(cand)
+            except (TypeError, ValueError):
+                target = None
+
+            if target is not None:
+                # Occasionally return the literal exactly; otherwise nudge the
+                # current value towards that literal to keep some diversity.
+                if self.random.random() < 0.5:
+                    new_val = target
+                else:
+                    delta = target - val
+                    step = max(1, abs(delta) // self.random.randint(2, 6))
+                    new_val = val + (step if delta > 0 else -step)
+                return jvm.Value(jvm.Int(), new_val)
+
         if random.random() < 0.2:
             mutation = self.random.choice([-10, -1, 1, 10, 42, -42])
             new_val = val + mutation
@@ -253,25 +288,44 @@ class Fuzzer:
         return jvm.Value(jvm.Int(), new_val)
 
     def mutate_char(self, val: str) -> jvm.Value:
+        # Prefer chars that actually appear as literals in the method if
+        # available, otherwise fall back to local mutations.
+        if self.literals.get("char_literals") and self.random.random() < 0.5:
+            raw = self.random.choice(self.literals["char_literals"])
+            ch = raw[0] if raw else val
+            return jvm.Value(jvm.Char(), ch)
+
         mutation = self.random.choice([-1, 1, 5, -5])
         new_val = chr(max(32, min(126, ord(val) + mutation)))  # keep printable
         return jvm.Value(jvm.Char(), new_val)
 
     def mutate_string(self, s: str) -> jvm.Value:
-        if len(s) == 0 or self.random.random() < 0.3:
-            # insert a character
-            pos = self.random.randint(0, len(s))
-            ch = chr(self.random.randint(32, 126))
-            new_s = s[:pos] + ch + s[pos:]
-        elif self.random.random() < 0.9:
-            # modify a character
-            pos = self.random.randint(0, len(s) - 1)
-            ch = chr(self.random.randint(32, 126))
-            new_s = s[:pos] + ch + s[pos + 1 :]
+        # Occasionally replace or splice in a syntaxer-extracted literal to
+        # reach hard-to-guess keywords or magic strings.
+        string_literals = self.literals.get("string_literals") or []
+        if string_literals and self.random.random() < 0.4:
+            lit = self.random.choice(string_literals)
+            # With high probability, use the literal as a whole value.
+            if self.random.random() < 0.7 or not s:
+                new_s = lit
+            else:
+                pos = self.random.randint(0, len(s))
+                new_s = s[:pos] + lit + s[pos:]
         else:
-            # delete a character
-            pos = self.random.randint(0, len(s) - 1)
-            new_s = s[:pos] + s[pos + 1 :]
+            if len(s) == 0 or self.random.random() < 0.3:
+                # insert a character
+                pos = self.random.randint(0, len(s))
+                ch = chr(self.random.randint(32, 126))
+                new_s = s[:pos] + ch + s[pos:]
+            elif self.random.random() < 0.9:
+                # modify a character
+                pos = self.random.randint(0, len(s) - 1)
+                ch = chr(self.random.randint(32, 126))
+                new_s = s[:pos] + ch + s[pos + 1 :]
+            else:
+                # delete a character
+                pos = self.random.randint(0, len(s) - 1)
+                new_s = s[:pos] + s[pos + 1 :]
         return jvm.Value(jvm.Object(ClassName("java/lang/String")), new_s)
 
     def mutate_array(self, arr: list, elem_type: jvm.Type) -> jvm.Value:

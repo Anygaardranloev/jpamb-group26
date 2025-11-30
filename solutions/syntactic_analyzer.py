@@ -1,213 +1,250 @@
 #!/usr/bin/env python3
-"""
-tree-sitter based syntactic analysis which extracts:
-- int literals
-- string literals
-- char literals
-- boolean usages
-- comparison constants (var, op, val)
-- numeric constants inside string manipulation
+"""Tree-sitter based syntactic analysis that extracts literals for fuzzing.
+
+This script is meant to be called by ``jpamb`` in the same way as the
+provided ``syntaxer.py`` solution, but instead of predicting properties of the
+method under test it outputs a JSON object with the literals that appear in
+that method. A later fuzzing stage can then read this JSON and use the
+discovered values as mutation seeds.
 """
 
-import jpamb
 import argparse
 import json
+
+import jpamb
 import tree_sitter
 import tree_sitter_java
 
 JAVA_LANGUAGE = tree_sitter.Language(tree_sitter_java.language())
-parser = tree_sitter.Parser(JAVA_LANGUAGE)
+PARSER = tree_sitter.Parser(JAVA_LANGUAGE)
 
 
-class SyntacticAnalyzer:
-    def __init__(self, methodid):
+class LiteralExtractor:
+    """Extract integer and string related literals from a single method.
+
+    The extractor focuses on data that is directly useful for input
+    generation:
+
+    - integer literals used anywhere in the body
+    - character literals
+    - string literals
+    - integer literals that occur as arguments to common string methods
+      (``substring``, ``charAt``, ``indexOf``), which often encode
+      boundary-related information
+    """
+
+    def __init__(self, methodid: "jpamb.jvm.AbsMethodID") -> None:
         self.methodid = methodid
-        self.src = jpamb.sourcefile(methodid).read_text()
-        self.tree = parser.parse(self.src.encode("utf8"))
+        src_path = jpamb.sourcefile(methodid)
+        self.src = src_path.read_text(encoding="utf8")
+        self.tree = PARSER.parse(self.src.encode("utf8"))
         self.root = self.tree.root_node
 
-    def treewalk(self, kind):
-        stack = [self.root]
+        # Restrict all analysis to the specific method body we are asked
+        # about. This mirrors the logic used in ``solutions/syntaxer.py``.
+        self._method_body = self._find_method_body()
+
+    # --- AST location helpers -----------------------------------------
+
+    def _find_class_node(self):
+        """Locate the class node matching the method's declaring class.
+
+        Uses a simple tree walk (no QueryCursor) to stay compatible with the
+        Python Tree-sitter bindings.
+        """
+
+        simple_classname = str(self.methodid.classname.name)
+
+        def walk(node):
+            if node.type == "class_declaration":
+                name_child = None
+                for child in node.children:
+                    if child.type == "identifier":
+                        name_child = child
+                        break
+                if name_child and self._text(name_child) == simple_classname:
+                    return node
+            for child in node.children:
+                found = walk(child)
+                if found is not None:
+                    return found
+            return None
+
+        return walk(self.root)
+
+    def _find_method_body(self):
+        """Locate the body node of the specific method under test."""
+
+        class_node = self._find_class_node()
+        if class_node is None:
+            return None
+
+        method_name = self.methodid.extension.name
+
+        def walk(node):
+            if node.type == "method_declaration":
+                name_child = None
+                for child in node.children:
+                    if child.type == "identifier":
+                        name_child = child
+                        break
+                if name_child and self._text(name_child) == method_name:
+                    return node.child_by_field_name("body")
+            for child in node.children:
+                found = walk(child)
+                if found is not None:
+                    return found
+            return None
+
+        return walk(class_node)
+
+    # --- small helpers -------------------------------------------------
+
+    def _walk(self, kind: str):
+        # If we failed to locate the method body (should not normally
+        # happen), fall back to walking the whole tree.
+        start_node = self._method_body or self.root
+        stack = [start_node]
         while stack:
             node = stack.pop()
             if node.type == kind:
                 yield node
             stack.extend(node.children)
 
-    def text_of(self, node):
+    def _text(self, node) -> str:
         return self.src[node.start_byte : node.end_byte]
 
-    def get_int_lits(self):
-        ints = []
-        for n in self.treewalk("decimal_integer_literal"):
-            ints.append(self.text_of(n))
-        return sorted(set(ints))
+    # --- literal extraction --------------------------------------------
 
-    def get_str_lits(self):
-        strs = []
-        for n in self.treewalk("string_literal"):
-            strs.append(self.text_of(n))
-        return sorted(set(strs))
-
-    def get_char_lits(self):
-        chars = []
-        for n in self.treewalk("character_literal"):
-            lit = self.text_of(n)
-            chars.append(lit.strip("'"))
-        return sorted(set(chars))
-
-    # still dont know if useful
-    def get_uses_bool(self):
-        for n in self.treewalk("boolean_literal"):
-            return True
-        return False
-
-    def get_int_comps(self):
-        comps = []
-        for n in self.treewalk("binary_expression"):
-            op = n.child_by_field_name("operator")
-            if not op:
-                continue
-            op_text = self.text_of(op)
-
-            if op_text not in {"==", "!=", "<=", ">=", "<", ">"}:
+    def int_literals(self):
+        values = []
+        # Tree-sitter Java uses different node types for numeric literals,
+        # e.g. "decimal_integer_literal" and "hex_integer_literal".
+        for node in self._walk("decimal_integer_literal"):
+            text = self._text(node)
+            try:
+                values.append(int(text, 10))
+            except ValueError:
+                # Fall back to keeping the raw text if parsing fails.
                 continue
 
-            left = n.child_by_field_name("left")
-            right = n.child_by_field_name("right")
-            if not left or not right:
+        for node in self._walk("hex_integer_literal"):
+            text = self._text(node)
+            try:
+                values.append(int(text, 16))
+            except ValueError:
                 continue
 
-            left_text = self.text_of(left)
-            right_text = self.text_of(right)
+        # Return unique, sorted integers.
+        return sorted(set(values))
 
-            if left.type == "identifier" and right.type == "decimal_integer_literal":
-                comps.append((left_text, op_text, right_text))
-            if right.type == "identifier" and left.type == "decimal_integer_literal":
-                comps.append((right_text, op_text, left_text))
+    def char_literals(self):
+        values = []
+        for node in self._walk("character_literal"):
+            lit = self._text(node)
+            # remove surrounding single quotes, keep escape sequences
+            if lit.startswith("'") and lit.endswith("'") and len(lit) >= 2:
+                lit = lit[1:-1]
+            values.append(lit)
+        return sorted(set(values))
 
-        return sorted(set(comps))
+    def string_literals(self):
+        values = []
+        for node in self._walk("string_literal"):
+            lit = self._text(node)
+            # remove surrounding double quotes, keep the raw Java content
+            if lit.startswith('"') and lit.endswith('"') and len(lit) >= 2:
+                lit = lit[1:-1]
+            values.append(lit)
+        return sorted(set(values))
 
-    def get_str_method_consts(self):
-        str_method_consts = []
-        for n in self.treewalk("method_invocation"):
-            name_n = n.child_by_field_name("name")
-            if not name_n:
+    def string_index_constants(self):
+        """Integer literals used as indices in string methods.
+
+        Returns a sorted list of the *string* representation of the literal
+        values (e.g. ["0", "1", "2"]). These are especially useful for
+        boundary mutations of string inputs.
+        """
+
+        consts = []
+        for node in self._walk("method_invocation"):
+            name_node = node.child_by_field_name("name")
+            if not name_node:
                 continue
-            name = self.text_of(name_n)
+            name = self._text(name_node)
             if name not in {"substring", "charAt", "indexOf"}:
                 continue
 
-            args = n.child_by_field_name("arguments")
+            args = node.child_by_field_name("arguments")
             if not args:
                 continue
             for child in args.children:
                 if child.type == "decimal_integer_literal":
-                    str_method_consts.append(self.text_of(child))
+                    consts.append(self._text(child))
 
-        return sorted(set(str_method_consts))
+        return sorted(set(consts))
 
-    # returns set of triplets: (s.length(), op, int)
-    def get_str_length_comps(self):
-        comps = []
-        for n in self.treewalk("binary_expression"):
-            op = n.child_by_field_name("operator")
-            if not op:
-                continue
-            op_text = self.text_of(op)
-            if op_text not in {"==", "!=", "<=", ">=", "<", ">"}:
-                continue
+    def to_json(self) -> str:
+        """Return a JSON string with all extracted literals.
 
-            left = n.child_by_field_name("left")
-            right = n.child_by_field_name("right")
-            if not left or not right:
-                continue
+        The structure is intentionally simple so that a fuzzer can load it
+        without depending on ``jpamb``:
 
-            if left.type == "method_invocation":
-                name = left.child_by_field_name("name")
-                if name and self.text_of(name) == "length":
-                    target = left.child_by_field_name("object")
-                    if target and right.type == "decimal_integer_literal":
-                        comps.append(
-                            (self.text_of(target), op_text, self.text_of(right))
-                        )
+        ::
 
-            if right.type == "method_invocation":
-                name = right.child_by_field_name("name")
-                if name and self.text_of(name) == "length":
-                    target = right.child_by_field_name("object")
-                    if target and left.type == "decimal_integer_literal":
-                        comps.append(
-                            (self.text_of(target), op_text, self.text_of(left))
-                        )
+            {
+              "int_literals": ["0", "1", ...],
+              "char_literals": ["a", "b", ...],
+              "string_literals": ["foo", "bar", ...],
+              "string_index_constants": ["0", "1", ...]
+            }
+        """
 
-        return sorted(set(comps))
-
-    def get_regex_patterns(self):
-        patterns = []
-        for n in self.treewalk("method_invocation"):
-            n_name = n.child_by_field_name("name")
-            if not n_name:
-                continue
-            name = self.text_of(n_name)
-            if name not in {"matches", "replaceAll", "split"}:
-                continue
-
-            args = n.child_by_field_name("arguments")
-            if not args:
-                continue
-
-            for child in args.children:
-                if child.type == "string_literal":
-                    pattern = self.text_of(child).strip('"')
-                    patterns.append((name, pattern))
-                    break
-
-        return patterns
-
-    def get_all(self):
-        return {
-            "int_lits": self.get_int_lits(),
-            "str_lits": self.get_str_lits(),
-            "char_lits": self.get_char_lits(),
-            "uses_bool": self.get_uses_bool(),
-            "int_comps": self.get_int_comps(),
-            "str_method_consts": self.get_str_method_consts(),
-            "str_length_comps": self.get_str_length_comps(),
-            "regex_patterns": self.get_regex_patterns(),
+        data = {
+            "int_literals": self.int_literals(),
+            "char_literals": self.char_literals(),
+            "string_literals": self.string_literals(),
+            "string_index_constants": self.string_index_constants(),
         }
+        return json.dumps(data, indent=4, sort_keys=True)
 
 
-def main():
-    ap = argparse.ArgumentParser(
-        description="Syntactic analyzer for Java methods using tree-sitter"
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description=(
+            "Extract integer and string related literals from a Java method "
+            "using tree-sitter."
+        )
     )
-    ap.add_argument(
+    parser.add_argument(
         "methodid",
         type=str,
-        help="The method ID to analyze, or 'info' to print info about this tool",
+        help=(
+            "The method ID to analyze, or 'info' to print metadata " "about this tool."
+        ),
     )
-    args = ap.parse_args()
+    args = parser.parse_args()
 
     if args.methodid == "info":
+        # Let jpamb know about this analysis tool
         jpamb.printinfo(
             "syntactic_analyzer",
-            "0.1",
+            "0.2",
             "group26",
             ["syntactic", "python"],
             for_science=True,
         )
+        return
 
     try:
         methodid = jpamb.jvm.AbsMethodID.decode(args.methodid)
-    except Exception as e:
-        print(f"Error: Invalid method ID '{args.methodid}': {e}")
+    except Exception as exc:  # pragma: no cover - defensive
+        print(f"Error: Invalid method ID '{args.methodid}': {exc}")
         return
 
-    analyzer = SyntacticAnalyzer(methodid)
-    result = analyzer.get_all()
-    print(json.dumps(result, indent=4))
+    extractor = LiteralExtractor(methodid)
+    print(extractor.to_json())
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover - CLI entry point
     main()

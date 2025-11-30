@@ -30,6 +30,9 @@ jpamb.cases.Calls.callsAssertTrue:()V                        () -> ok
 jpamb.cases.Fuzzer.assertMultiplePossibleCrashInputsNestedBranches:(Ljava/lang/String;)V ("P4ssTEST") -> assertion error
 jpamb.cases.Fuzzer.assertMultiplePossibleCrashInputsNestedBranches:(Ljava/lang/String;)V ("P4ssw0rd") -> assertion error
 jpamb.cases.Fuzzer.assertMultiplePossibleCrashInputsNestedBranches:(Ljava/lang/String;)V ("password") -> ok
+jpamb.cases.Fuzzer.assertOnlyCorrectHeaderFormat:(Ljava/lang/String;I)V ("X-API-KEY: secret-key-s3cur3p4ss", 305419896) -> assertion error
+jpamb.cases.Fuzzer.assertOnlyCorrectHeaderFormat:(Ljava/lang/String;I)V ("X-API-KEY: wrong", 0) -> ok
+jpamb.cases.Fuzzer.assertOnlyCorrectHeaderFormat:(Ljava/lang/String;I)V ("X-OTHER: secret-key-123", 0) -> ok
 jpamb.cases.Fuzzer.assertOnlyCorrectPasswordLoop:(Ljava/lang/String;)V ("11111111") -> ok
 jpamb.cases.Fuzzer.assertOnlyCorrectPasswordLoop:(Ljava/lang/String;)V ("C0d3W0rD") -> assertion error
 jpamb.cases.Fuzzer.assertOnlyCorrectPasswordNestedBranches:(Ljava/lang/String;)V ("P4ssw0rd") -> assertion error
