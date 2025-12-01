@@ -43,6 +43,13 @@ class StringSign:
             signs=self.signs | other.signs,
             encodings=self.encodings | other.encodings,
             length=min(self.length, other.length))
+    
+    def __le__(self, other: "StringSign") -> bool:
+        return (
+            self.signs.issubset(other.signs) and
+            self.encodings.issubset(other.encodings) and
+            self.length <= other.length
+        )
 
 
     @classmethod
