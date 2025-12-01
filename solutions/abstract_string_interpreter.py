@@ -23,13 +23,27 @@ class StringSign:
     length: int
 
     def __contains__(self, s: str) -> bool:
-        """All chars in the string must match both sign and encoding."""
+        
         for ch in s:
             if StringSign.sign_of_char(ch) not in self.signs:
                 return False
             if StringSign.encoding_of_char(ch) not in self.encodings:
                 return False
         return True
+
+    def __and__(self, other: "StringSign") -> "StringSign":
+        return StringSign(
+            signs=self.signs & other.signs,
+            encodings=self.encodings & other.encodings,
+            length=max(self.length, other.length)
+        )
+
+    def __or__(self, other: "StringSign") -> "StringSign":
+        return StringSign(
+            signs=self.signs | other.signs,
+            encodings=self.encodings | other.encodings,
+            length=min(self.length, other.length))
+
 
     @classmethod
     def abstract(cls, string: str) -> "StringSign":
@@ -70,6 +84,42 @@ class StringSign:
         return f"string-[{signs}]-[{encs}]-{self.length}"
 
     __repr__ = __str__
+
+class SignSet:
+
+    signSet: set[StringSign]
+
+    def __init__(self, signSet: set[StringSign]):
+        self.signSet = signSet
+
+    def __contains__(self, member : StringSign) -> bool: 
+        if (member in self.signSet): 
+            return True
+        return False
+
+    @classmethod
+    def abstract(cls, strings: list[str]) -> "SignSet":
+        sign_set: set[StringSign] = set()
+
+        for string in strings:
+            sign_set.add(StringSign.abstract(string))
+
+        return cls(sign_set)
+    
+    def __and__(self, other: "SignSet") -> "SignSet":
+        result = set()
+        for s1 in self.signSet:
+            for s2 in other.signSet:
+                result.add(s1 & s2)
+        return SignSet(result)
+
+    def __or__(self, other: "SignSet") -> "SignSet":
+        result = set()
+        for s1 in self.signSet:
+            for s2 in other.signSet:
+                result.add(s1 | s2)
+        return SignSet(result)
+
 
 class StringOperation:
 
