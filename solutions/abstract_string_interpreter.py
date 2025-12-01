@@ -199,6 +199,8 @@ class State:
         return f"{self.heap} {self.frames}"
 
 def to_int(v: jvm.Value) -> int:
+    if isinstance(v,int):
+        return v
     if v.type is jvm.Int():
         return v.value
     if v.type is jvm.Char():
@@ -215,10 +217,14 @@ class Interpreter:
     
     def _bin_int(self, frame: Frame, state: State, op):
         v2, v1 = frame.stack.pop(), frame.stack.pop()
-        assert (
-            v1.type == jvm.Int() and v2.type == jvm.Int()
-        ), f"expected ints, got {v1}, {v2}"
-        frame.stack.push(jvm.Value.int(op(v1.value, v2.value)))
+        if isinstance(v1,int) and isinstance(v2, int):
+            frame.stack.push(jvm.Value.int(op(v1, v2)))
+
+        elif isinstance(v1,jvm.Value) and isinstance(v2, jvm.Value):
+            assert (
+                v1.type == jvm.Int() and v2.type == jvm.Int()
+            ), f"expected ints, got {v1}, {v2}"
+            frame.stack.push(jvm.Value.int(op(v1.value, v2.value)))
         frame.pc += 1
         return state
 
@@ -341,11 +347,16 @@ class Interpreter:
             
             case jvm.Ifz(condition=cond, target=t):
                 v = frame.stack.pop()
-                val = v.value
-                if isinstance(val, bool):
-                    val = 1 if val else 0
-                elif not isinstance(val, int):
-                    raise AssertionError(f"ifz expects int/bool-like, got {v}")
+                val = 0
+                if not isinstance(v,jvm.Value):
+                    if isinstance(v, bool):
+                        val = 1 if val else 0
+                    elif isinstance(v, int):
+                        val = v
+                    else:
+                        raise AssertionError(f"ifz expects int/bool-like, got {v}")
+                else:
+                    val = v.value
                 c = str(cond)  # e.g., 'eq','ne','gt','ge','lt','le','z','nz'
                 if c in ("eq", "z"):
                     jump = val == 0
@@ -369,7 +380,10 @@ class Interpreter:
                 v1 = frame.stack.pop()
                 c = str(cond)
                 if c == "is":
-                    ok = v1.type == v2.type and v1.value == v2.value
+                    if isinstance(v1,jvm.Value) and isinstance(v2,jvm.Value):
+                        ok = v1.type == v2.type and v1.value == v2.value
+                    else:
+                        ok = v1 == v2
                 else:
                     i1 = to_int(v1)
                     i2 = to_int(v2)
@@ -449,13 +463,16 @@ class Interpreter:
                             value1 = self.get_stringSign(state, arg)
                             value2 = self.get_stringSign(state,recv)
 
-                            result = StringOperation.equals(value1,value2)
-
-                            if result == "assertion error":
+                            if value1 is None or value2 is None:
                                 is_equal = False
+                            else:
+                                result = StringOperation.equals(value1,value2)
 
-                            elif result == "maybe":
-                                is_equal = False
+                                if result == "assertion error":
+                                    is_equal = False
+
+                                elif result == "maybe":
+                                    is_equal = False
                             
                             frame.stack.push(jvm.Value(jvm.Boolean(), is_equal))
                             frame.pc += 1
@@ -468,13 +485,16 @@ class Interpreter:
                             value1 = self.get_stringSign(state, arg)
                             value2 = self.get_stringSign(state,recv)
 
-                            result = StringOperation.equals(value1,value2)
-
-                            if result == "assertion error":
+                            if value1 is None or value2 is None:
                                 is_equal = False
+                            else:
+                                result = StringOperation.equals(value1,value2)
 
-                            elif result == "maybe":
-                                is_equal = False
+                                if result == "assertion error":
+                                    is_equal = False
+
+                                elif result == "maybe":
+                                    is_equal = False
                             
                             frame.stack.push(jvm.Value(jvm.Boolean(), is_equal))
                             frame.pc += 1
